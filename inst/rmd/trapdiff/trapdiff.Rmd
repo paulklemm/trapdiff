@@ -60,14 +60,14 @@ get_settings <- function(path_settings) {
   settings <- jsonlite::read_json(path_settings)
 }
 
-if (!is.null(params$count_data)) {
-  message("Using count_data dataframe provided as paramter")
-  count_data <- params$count_data
-} else {
-  message("Loading counts from Salmon count CSV file")
-  count_data <- readr::read_csv(
-    params$path_salmon_counts,
-    progress = FALSE
-  )
-}
+# if (!is.null(params$count_data)) {
+#   message("Using count_data dataframe provided as paramter")
+#   count_data <- params$count_data
+# } else {
+#   message("Loading counts from Salmon count CSV file")
+#   count_data <- readr::read_csv(
+#     params$path_salmon_counts,
+#     progress = FALSE
+#   )
+# }
 ```
