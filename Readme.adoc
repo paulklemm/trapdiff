@@ -86,6 +86,11 @@ We define our experiment using a JSON file.
 In `treatment_comparison` we say which comparison we want.
 In this example, we compare `HFD vs NCD`.
 
+You also need to provide a counts object that contains a tabular representation of your count matrix.
+It needs to contain a column `ensembl_gene_id` and a column for each sample.
+
+*The counts are rounded to integers to comply with DESeq2 standards during the analysis!*
+
 == Development
 
 These options are only important for developing the package.
@@ -102,7 +107,12 @@ xaringan::infinite_moon_reader(
   cast_from = file.path(getwd(), "inst", "rmd", "trapdiff"),
   params = list(
     path_config_json = "trapdiff-debug/config.json",
-    counts = trapdiff::get_test_counts()
+    counts = trapdiff::get_test_counts() %>%
+      # Add empty columns to check if detection of these work
+      dplyr::mutate(
+        debug_sample_1 = "",
+        debug_sample_2 = ""
+      )
   )
 )
 ----

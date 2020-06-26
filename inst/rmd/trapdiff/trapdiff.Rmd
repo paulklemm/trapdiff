@@ -40,8 +40,10 @@ if (rmd_params$save_figures) {
 
 ### Overview & DESeq2 Run
 
+#### Configuration
+
 <details>
-<summary>Configuration</summary>
+<summary>Show configuration</summary>
 
 ```{r show-run-config, paged.print = TRUE}
 # Print settings as table
@@ -53,15 +55,6 @@ tibble::tibble(
 ) %>%
   knitr::kable()
 ```
-
-Here is the head of the counts table.
-
-```{r print-counts-head}
-# Print head of counts
-head(rmd_params$counts) %>% rmarkdown::paged_table()
-```
-
-</details>
 
 ```{r import-settings}
 
@@ -130,10 +123,75 @@ col_data <- tibble::tibble(
     by = c("id" = "sample_name")
   )
 
-# col_data_ref <- tibble::tibble(
-#   sample_name = c("wt_ip_hfd_1", "wt_input_hfd_4", "wt_ip_hfd_3", "wt_input_hfd_1", "wt_ip_hfd_4", "wt_input_hfd_2", "wt_input_hfd_3", "wt_ip_hfd_2", "wt_input_ncd_2", "wt_input_ncd_1", "wt_ip_ncd_3", "wt_ip_ncd_2", "wt_ip_ncd_1", "wt_input_ncd_3") %>% as.factor(),
-#   treatment = c("hfd", "hfd", "hfd", "hfd", "hfd", "hfd", "hfd", "hfd", "ncd", "ncd", "ncd", "ncd", "ncd", "ncd") %>% as.factor() %>% forcats::fct_relevel("hfd"),
-#   source = c("ip", "input", "ip", "input", "ip", "input", "input", "ip", "input", "input", "ip", "ip", "ip", "input") %>% forcats::fct_relevel("ip")
-# ) %>%
-#   tibble::column_to_rownames("sample_name")
 ```
+
+```{r check-undefined-samples}
+
+# Check if we have samples in count table that we do not have a treatment for
+undefined_samples <- col_data %>%
+  dplyr::filter(
+    is.na(treatment) | is.na(source)
+  )
+
+# Print undefined samples if there are any
+if (nrow(undefined_samples) > 0) {
+  warning("We remove the following sample(s) because they were not assigned to a treatment/source group in the JSON config.")
+  print(undefined_samples$id)
+}
+
+# Remove undefined samples from count matrix
+counts <- rmd_params$counts
+undefined_samples$id %>%
+  purrr::walk(function(na_sample) {
+    counts <<- counts %>%
+      dplyr::select(-dplyr::contains(na_sample))
+  })
+
+# Remove undefined samples from col_data
+col_data <- col_data %>%
+  dplyr::filter(!is.na(treatment) & !is.na(source))
+
+# Convert counts to integer to comply with DEseq2 standards
+counts %<>%
+  dplyr::mutate_if(is.double, round) %>%
+  dplyr::mutate_if(is.double, as.integer)
+
+```
+
+The head of the counts table looks as follows
+
+```{r print_top_entries}
+
+counts %>%
+  head() %>%
+  rmarkdown::paged_table()
+```
+
+The sample group assignment table is defined as follows:
+
+```{r print_design_table}
+
+knitr::kable(col_data)
+
+```
+
+</details>
+
+#### Run DESeq2
+
+<details>
+<summary>Show DESeq2 messages</summary>
+
+```{r run-deseq2}
+
+deseq_data <- DESeq2::DESeqDataSetFromMatrix(
+  countData = counts %>% as.data.frame(),
+  colData = col_data,
+  design = ~ source + treatment + source:treatment,
+  tidy = TRUE
+)
+
+deseq_result <- DESeq2::DESeq(deseq_data)
+```
+
+</details>
