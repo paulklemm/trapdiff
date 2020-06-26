@@ -27,21 +27,59 @@ design = source + condition + source:condition
 == Usage
 
 We define our experiment using a JSON file.
-Here is an example.
+
+.Here is an example.
+[%collapsible]
+====
 
 ```json
 
-{
-  "ip": ["ip_hfd_1", "ip_hfd_3", "ip_hfd_4", "ip_hfd_2", "ip_ncd_3", "ip_ncd_2", "ip_ncd_1"],
-  "input": ["input_hfd_4", "input_hfd_1", "input_hfd_2", "input_hfd_3", "input_ncd_2", "input_ncd_1", "input_ncd_3"],
+  "ip": [
+    "ip_hfd_1",
+    "ip_hfd_3",
+    "ip_hfd_4",
+    "ip_hfd_2",
+    "ip_ncd_3",
+    "ip_ncd_2",
+    "ip_ncd_1"
+  ],
+  "input": [
+    "input_hfd_4",
+    "input_hfd_1",
+    "input_hfd_2",
+    "input_hfd_3",
+    "input_ncd_2",
+    "input_ncd_1",
+    "input_ncd_3"
+  ],
   "condition": {
-    "hfd": ["wt_ip_hfd_1", "wt_input_hfd_4", "wt_ip_hfd_3", "wt_input_hfd_1", "wt_ip_hfd_4", "wt_input_hfd_2", "wt_input_hfd_3", "wt_ip_hfd_2"],
-    "ncd": ["wt_input_ncd_2", "wt_input_ncd_1", "wt_ip_ncd_3", "wt_ip_ncd_2", "wt_ip_ncd_1", "wt_input_ncd_3"]
+    "hfd": [
+      "wt_ip_hfd_1",
+      "wt_input_hfd_4",
+      "wt_ip_hfd_3",
+      "wt_input_hfd_1",
+      "wt_ip_hfd_4",
+      "wt_input_hfd_2",
+      "wt_input_hfd_3",
+      "wt_ip_hfd_2"
+    ],
+    "ncd": [
+      "wt_input_ncd_2",
+      "wt_input_ncd_1",
+      "wt_ip_ncd_3",
+      "wt_ip_ncd_2",
+      "wt_ip_ncd_1",
+      "wt_input_ncd_3"
+    ]
   },
-  "condition_comparison": ["hfd", "ncd"]
-}
+  "condition_comparison": [
+    "hfd",
+    "ncd"
+  ]
 
 ```
+
+====
 
 In `condition_comparison` we say which comparison we want.
 In this example, we compare `HFD vs NCD`.
