@@ -18,4 +18,6 @@ Remotes:
 Imports: 
     magrittr,
     rmyknife,
-    jsonlite
+    jsonlite,
+    dplyr,
+    rmarkdown

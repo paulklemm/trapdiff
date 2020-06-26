@@ -91,7 +91,7 @@ These options are only important for developing the package.
 .Dev
 [%collapsible]
 ====
-Debug the RMarkdown doc
+Debug the RMarkdown doc.
 
 [source,r]
 ----
@@ -99,7 +99,8 @@ xaringan::infinite_moon_reader(
   moon = "inst/rmd/trapdiff/trapdiff.Rmd",
   cast_from = file.path(getwd(), "inst", "rmd", "trapdiff"),
   params = list(
-    path_config_json = ""
+    path_config_json = "/beegfs/scratch/bruening_scratch/pklemm/rpackages/trapdiff/trapdiff-debug/config.json",
+    counts = trapdiff::get_test_counts()
   )
 )
 ----

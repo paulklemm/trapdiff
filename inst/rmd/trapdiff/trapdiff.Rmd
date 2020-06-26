@@ -10,6 +10,8 @@ output:
 params:
   path_out: "./"
   path_config_json: ""
+  save_figures: TRUE
+  counts: ""
 ---
 
 ```{r setup, results = "hide", message = FALSE, warning = FALSE}
@@ -19,20 +21,19 @@ suppressWarnings(library(rmyknife))
 
 # Put params into separate object because sometimes params
 # get's inaccessible when developing with xaringan
-rmd_params <- list()
-rmd_params$path_out <- params$path_out
-rmd_params$path_config_json <- params$path_config_json
+rmd_params <- params
 
 # https://stackoverflow.com/questions/27992239/knitr-include-figures-in-report-and-output-figures-to-separate-files#comment71370705_27996644
-knitr::opts_chunk$set(
-  dev = c("png", "pdf"),
-  fig.path = file.path(
-    rmd_params$path_out,
-    # Attach trailing '/'
-    paste0("figures", .Platform$file.sep)
+if (rmd_params$save_figures) {
+  knitr::opts_chunk$set(
+    dev = c("png", "pdf"),
+    fig.path = file.path(
+      rmd_params$path_out,
+      # Attach trailing '/'
+      paste0("figures", .Platform$file.sep)
+    )
   )
-)
-
+}
 ```
 
 ## {.tabset}
@@ -42,13 +43,22 @@ knitr::opts_chunk$set(
 <details>
 <summary>Configuration</summary>
 
-```{r show-run-config}
+```{r show-run-config, paged.print = TRUE}
 # Print settings as table
+print_params <- rmd_params
+print_params$counts <- "not displayed"
 tibble::tibble(
-  name = names(rmd_params),
-  setting = rmd_params[names(rmd_params)]
+  name = names(print_params),
+  setting = print_params[names(print_params)]
 ) %>%
   knitr::kable()
+```
+
+Here is the head of the counts table.
+
+```{r print-counts-head}
+# Print head of counts
+head(rmd_params$counts) %>% rmarkdown::paged_table()
 ```
 
 </details>
@@ -56,7 +66,7 @@ tibble::tibble(
 ```{r import-settings}
 
 get_settings <- function(path_settings) {
-  # path_settings <- rmd_params$path_settings
+  # path_settings <- rmd_params$path_config_json
   settings <- jsonlite::read_json(path_settings)
 }
 
