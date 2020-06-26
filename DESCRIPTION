@@ -1,5 +1,5 @@
 Package: trapdiff
-Title: What the Package Does (One Line, Title Case)
+Title: Differential Gene Expression for bacTRAP/riboTRAP data based on DESeq2
 Version: 0.0.0.9000
 Authors@R: 
     person(given = "Paul",
@@ -7,9 +7,8 @@ Authors@R:
            role = c("aut", "cre"),
            email = "paul.klemm@sf.mpg.de",
            comment = c(ORCID = "https://orcid.org/0000-0002-5985-1737"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to
-    pick a license
+Description: The goal of this package is to have an automated interface for conducting RNA-seq analysis of riboTRAP and bacTRAP data. In this data, we have two measurements per sample: Input (the background) and IP (pulldown of a specific cell type). We call this *source*. Then we have a experimental *condition*, for example normal chow diet (NCD) and high fat diet (HFD). We are now interested in genes that are (1) enriched in our pulldown (IP) and (2) differentially expressed between our experimental condition (e.g. HFD vs NCD) in the IP.
+License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
