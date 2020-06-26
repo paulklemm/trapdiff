@@ -1,0 +1,32 @@
+= trapdiff
+Paul Klemm <paul.klemm@sf.mpg.de>
+:toc:
+:repo: https://github.com/paulklemm/trapdiff
+:releases: {repo}/releases/tag
+:issues: {repo}/issues
+:docs: https://pages.github.com/paulklemm/trapdiff
+:images: images
+
+== Overview
+
+The goal of this package is to have an automated interface for conducting RNA-seq analysis of riboTRAP and bacTRAP data.
+
+In this data, we have two measurements per sample: Input (the background) and IP (pulldown of a specific cell type). We call this *source*.
+Then we have a experimental *condition*, for example normal chow diet (NCD) and high fat diet (HFD).
+
+We are now interested in genes that are (1) enriched in our pulldown (IP) and (2) differentially expressed between our experimental condition (e.g. HFD vs NCD) in the IP.
+
+We do this by using link:https://bioconductor.org/packages/release/bioc/html/DESeq2.html[DESeq2] with an interaction term model that looks as follows:
+
+```r
+design = source + condition + source:condition
+```
+
+== History
+
+.History
+[%collapsible]
+====
+* _2020-06-26_
+** Started project
+====
