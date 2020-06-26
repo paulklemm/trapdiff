@@ -7,6 +7,8 @@ Paul Klemm <paul.klemm@sf.mpg.de>
 :docs: https://pages.github.com/paulklemm/trapdiff
 :images: images
 
+IMPORTANT: This package is work in progress. It is not suited for use in production.
+
 == Overview
 
 The goal of this package is to have an automated interface for conducting RNA-seq analysis of riboTRAP and bacTRAP data.
