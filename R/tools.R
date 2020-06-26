@@ -20,6 +20,7 @@ get_test_counts <- function() {
     # Only include wt samples
     dplyr::select("gene_id", tidyr::contains("wt")) %>%
     dplyr::rename(
+      ensembl_gene_id = gene_id,
       wt_input_ncd_1 = INPUT_WT_1,
       wt_input_ncd_2 = INPUT_WT_2,
       wt_input_ncd_3 = INPUT_WT_3,

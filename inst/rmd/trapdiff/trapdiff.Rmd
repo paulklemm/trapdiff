@@ -65,19 +65,75 @@ head(rmd_params$counts) %>% rmarkdown::paged_table()
 
 ```{r import-settings}
 
-get_settings <- function(path_settings) {
-  # path_settings <- rmd_params$path_config_json
-  settings <- jsonlite::read_json(path_settings)
+#' Get col_data for DESeq2 from JSON config
+#' @param path_config_json Path to JSON configuration
+#' @return col_data tibble
+#' @export
+#' @import purrr magrittr jsonlite dplyr forcats
+get_coldata <- function(path_config_json) {
+  # path_config_json <- rmd_params$path_config_json
+  settings <- jsonlite::read_json(path_config_json)
+  # Iterate over group names and create treatment column
+  col_data_treatment <- dplyr::bind_rows(
+    settings$treatment %>%
+      # Iterate over all treatment names
+      names() %>%
+      purrr::map(function(group_name) {
+        # Create tibble for treatment and it's samples
+        tibble::tibble(
+          treatment = group_name,
+          sample_name = settings$treatment[group_name] %>% unlist()
+        ) %>% return()
+      })
+  )
+  # Attach IP/Input to col_data
+  col_data_source <- dplyr::bind_rows(
+    settings$source %>%
+      names() %>%
+      purrr::map(function(group_name) {
+        tibble::tibble(
+          source = group_name,
+          sample_name = settings$source[group_name] %>% unlist()
+        ) %>% return()
+      })
+  )
+  # Join col_data source and treatment
+  col_data <- dplyr::left_join(
+    x = col_data_source,
+    y = col_data_treatment,
+    by = "sample_name"
+  )
+  # Get the proper factor levels of treatment and source in col_data
+  treatment_fct_levels <- unlist(settings$treatment_comparison)
+  source_fct_levels <- unlist(settings$source_comparison)
+  col_data <-
+    col_data %>%
+    dplyr::mutate(
+      treatment = forcats::as_factor(treatment) %>%
+        forcats::fct_relevel(treatment_fct_levels),
+      source = forcats::as_factor(source) %>%
+        forcats::fct_relevel(source_fct_levels),
+    )
+  return(col_data)
 }
 
-# if (!is.null(params$count_data)) {
-#   message("Using count_data dataframe provided as paramter")
-#   count_data <- params$count_data
-# } else {
-#   message("Loading counts from Salmon count CSV file")
-#   count_data <- readr::read_csv(
-#     params$path_salmon_counts,
-#     progress = FALSE
-#   )
-# }
+# The order in coldata must be the same as in counts
+# We achieve this by joining based on the id in counts
+col_data <- tibble::tibble(
+  id = rmd_params$counts %>%
+    dplyr::select(-ensembl_gene_id) %>%
+    # Get column names
+    colnames()
+) %>%
+  dplyr::left_join(
+    get_coldata(rmd_params$path_config_json),
+    by = c("id" = "sample_name")
+  )
+
+# col_data_ref <- tibble::tibble(
+#   sample_name = c("wt_ip_hfd_1", "wt_input_hfd_4", "wt_ip_hfd_3", "wt_input_hfd_1", "wt_ip_hfd_4", "wt_input_hfd_2", "wt_input_hfd_3", "wt_ip_hfd_2", "wt_input_ncd_2", "wt_input_ncd_1", "wt_ip_ncd_3", "wt_ip_ncd_2", "wt_ip_ncd_1", "wt_input_ncd_3") %>% as.factor(),
+#   treatment = c("hfd", "hfd", "hfd", "hfd", "hfd", "hfd", "hfd", "hfd", "ncd", "ncd", "ncd", "ncd", "ncd", "ncd") %>% as.factor() %>% forcats::fct_relevel("hfd"),
+#   source = c("ip", "input", "ip", "input", "ip", "input", "input", "ip", "input", "input", "ip", "ip", "ip", "input") %>% forcats::fct_relevel("ip")
+# ) %>%
+#   tibble::column_to_rownames("sample_name")
 ```

@@ -14,14 +14,14 @@ IMPORTANT: This package is work in progress. It is not suited for use in product
 The goal of this package is to have an automated interface for conducting RNA-seq analysis of riboTRAP and bacTRAP data.
 
 In this data, we have two measurements per sample: Input (the background) and IP (pulldown of a specific cell type). We call this *source*.
-Then we have a experimental *condition*, for example normal chow diet (NCD) and high fat diet (HFD).
+Then we have a experimental *treatment*, for example normal chow diet (NCD) and high fat diet (HFD).
 
-We are now interested in genes that are (1) enriched in our pulldown (IP) and (2) differentially expressed between our experimental condition (e.g. HFD vs NCD) in the IP.
+We are now interested in genes that are (1) enriched in our pulldown (IP) and (2) differentially expressed between our experimental treatment (e.g. HFD vs NCD) in the IP.
 
 We do this by using link:https://bioconductor.org/packages/release/bioc/html/DESeq2.html[DESeq2] with an interaction term model that looks as follows:
 
 ```r
-design = source + condition + source:condition
+design = source + treatment + source:treatment
 ```
 
 == Usage
@@ -34,45 +34,47 @@ We define our experiment using a JSON file.
 
 ```json
 {
-  "ip": [
-    "ip_ncd_1",
-    "ip_ncd_2",
-    "ip_ncd_3",
-    "ip_hfd_1",
-    "ip_hfd_2",
-    "ip_hfd_3",
-    "ip_hfd_4"
-  ],
-  "input": [
-    "input_ncd_1",
-    "input_ncd_2",
-    "input_ncd_3",
-    "input_hfd_1",
-    "input_hfd_2",
-    "input_hfd_3",
-    "input_hfd_4"
-  ],
-  "condition": {
-    "hfd": [
-      "ip_hfd_1",
-      "ip_hfd_2",
-      "ip_hfd_3",
-      "ip_hfd_4",
-      "input_hfd_1",
-      "input_hfd_2",
-      "input_hfd_3",
-      "input_hfd_4"
+  "source": {
+    "ip": [
+      "wt_ip_ncd_1",
+      "wt_ip_ncd_2",
+      "wt_ip_ncd_3",
+      "wt_ip_hfd_1",
+      "wt_ip_hfd_2",
+      "wt_ip_hfd_3",
+      "wt_ip_hfd_4"
     ],
-    "ncd": [
-      "ip_ncd_1",
-      "ip_ncd_3",
-      "ip_ncd_2",
-      "input_ncd_1",
-      "input_ncd_2",
-      "input_ncd_3"
+    "input": [
+      "wt_input_ncd_1",
+      "wt_input_ncd_2",
+      "wt_input_ncd_3",
+      "wt_input_hfd_1",
+      "wt_input_hfd_2",
+      "wt_input_hfd_3",
+      "wt_input_hfd_4"
     ]
   },
-  "condition_comparison": [
+  "treatment": {
+    "hfd": [
+      "wt_ip_hfd_1",
+      "wt_ip_hfd_2",
+      "wt_ip_hfd_3",
+      "wt_ip_hfd_4",
+      "wt_input_hfd_1",
+      "wt_input_hfd_2",
+      "wt_input_hfd_3",
+      "wt_input_hfd_4"
+    ],
+    "ncd": [
+      "wt_ip_ncd_1",
+      "wt_ip_ncd_3",
+      "wt_ip_ncd_2",
+      "wt_input_ncd_1",
+      "wt_input_ncd_2",
+      "wt_input_ncd_3"
+    ]
+  },
+  "treatment_comparison": [
     "hfd",
     "ncd"
   ]
@@ -81,7 +83,7 @@ We define our experiment using a JSON file.
 
 ====
 
-In `condition_comparison` we say which comparison we want.
+In `treatment_comparison` we say which comparison we want.
 In this example, we compare `HFD vs NCD`.
 
 == Development
@@ -99,7 +101,7 @@ xaringan::infinite_moon_reader(
   moon = "inst/rmd/trapdiff/trapdiff.Rmd",
   cast_from = file.path(getwd(), "inst", "rmd", "trapdiff"),
   params = list(
-    path_config_json = "/beegfs/scratch/bruening_scratch/pklemm/rpackages/trapdiff/trapdiff-debug/config.json",
+    path_config_json = "trapdiff-debug/config.json",
     counts = trapdiff::get_test_counts()
   )
 )
