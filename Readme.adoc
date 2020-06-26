@@ -44,6 +44,28 @@ Here is an example.
 In `condition_comparison` we say which comparison we want.
 In this example, we compare `HFD vs NCD`.
 
+== Development
+
+These options are only important for developing the package.
+
+.Dev
+[%collapsible]
+====
+Debug the RMarkdown doc
+
+[source,r]
+----
+xaringan::infinite_moon_reader(
+  moon = "inst/rmd/trapdiff/trapdiff.Rmd",
+  cast_from = file.path(getwd(), "inst", "rmd", "trapdiff"),
+  params = list(
+    path_config_json = ""
+  )
+)
+----
+
+====
+
 == History
 
 .History

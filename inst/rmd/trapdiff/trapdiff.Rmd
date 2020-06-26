@@ -1,0 +1,73 @@
+---
+title: "Trapdiff"
+output:
+  html_document:
+    toc: no
+    toc_float: no
+    code_folding: hide
+    fig_height: 5
+    fig_width: 10
+params:
+  path_out: "./"
+  path_config_json: ""
+---
+
+```{r setup, results = "hide", message = FALSE, warning = FALSE}
+
+library(magrittr)
+suppressWarnings(library(rmyknife))
+
+# Put params into separate object because sometimes params
+# get's inaccessible when developing with xaringan
+rmd_params <- list()
+rmd_params$path_out <- params$path_out
+rmd_params$path_config_json <- params$path_config_json
+
+# https://stackoverflow.com/questions/27992239/knitr-include-figures-in-report-and-output-figures-to-separate-files#comment71370705_27996644
+knitr::opts_chunk$set(
+  dev = c("png", "pdf"),
+  fig.path = file.path(
+    rmd_params$path_out,
+    # Attach trailing '/'
+    paste0("figures", .Platform$file.sep)
+  )
+)
+
+```
+
+## {.tabset}
+
+### Overview & DESeq2 Run
+
+<details>
+<summary>Configuration</summary>
+
+```{r show-run-config}
+# Print settings as table
+tibble::tibble(
+  name = names(rmd_params),
+  setting = rmd_params[names(rmd_params)]
+) %>%
+  knitr::kable()
+```
+
+</details>
+
+```{r import-settings}
+
+get_settings <- function(path_settings) {
+  # path_settings <- rmd_params$path_settings
+  settings <- jsonlite::read_json(path_settings)
+}
+
+if (!is.null(params$count_data)) {
+  message("Using count_data dataframe provided as paramter")
+  count_data <- params$count_data
+} else {
+  message("Loading counts from Salmon count CSV file")
+  count_data <- readr::read_csv(
+    params$path_salmon_counts,
+    progress = FALSE
+  )
+}
+```
