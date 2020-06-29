@@ -1,3 +1,5 @@
 ^LICENSE\.md$
 ^inst\/rmd\/trapdiff\/trapdiff\.html$
 ^trapdiff\-debug$
+^inst\/rmd\/trapdiff\/figures$
+^inst\/rmd\/trapdiff\/trapdiff_cache$

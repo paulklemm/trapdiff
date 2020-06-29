@@ -5,3 +5,5 @@
 # Dev
 *.html
 trapdiff-debug
+trapdiff_cache
+inst/rmd/trapdiff/figures
