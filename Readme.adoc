@@ -102,11 +102,12 @@ Debug the RMarkdown doc.
 
 [source,r]
 ----
+mywd <- getwd()
 xaringan::infinite_moon_reader(
   moon = "inst/rmd/trapdiff/trapdiff.Rmd",
-  cast_from = file.path(getwd(), "inst", "rmd", "trapdiff"),
+  cast_from = file.path(mywd, "inst", "rmd", "trapdiff"),
   params = list(
-    path_config_json = "trapdiff-debug/config.json",
+    path_config_json = paste0(mywd, "/trapdiff-debug/config.json"),
     counts = trapdiff::get_test_counts() %>%
       # Add empty columns to check if detection of these work
       dplyr::mutate(
