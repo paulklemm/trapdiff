@@ -38,7 +38,7 @@ if (rmd_params$save_figures) {
 
 ## {.tabset}
 
-### Overview & DESeq2 Run
+### Quality Control
 
 #### Configuration
 
@@ -182,7 +182,7 @@ knitr::kable(col_data)
 <details>
 <summary>Show DESeq2 messages</summary>
 
-```{r run-deseq2}
+```{r run-deseq2, cache = TRUE}
 
 deseq_data <- DESeq2::DESeqDataSetFromMatrix(
   countData = counts %>% as.data.frame(),
@@ -195,3 +195,53 @@ deseq_result <- DESeq2::DESeq(deseq_data)
 ```
 
 </details>
+
+#### Principal Component Analysis
+
+The **P**rincipal **C**omponent **A**nalysis (PCA) shows which samples are similar on a genomic level.
+We want our experimental groups to cluster.
+If they do not cluster, the variance between the groups is too low or the variance within the groups is too low.
+This yields less differentially expressed genes.
+
+```{r plot-pca}
+
+#' PCA plot for quality control
+#' @param dat data frame containing the columns `PC1`, `PC2`, `name` and `group`
+#' @param title Additional information to put into the plot title
+#' @return ggplot2 object of PCA plot
+#' @import ggplot2 magrittr ggrepel
+pca_plot <- function(dat, title = "") {
+  dat %>%
+    ggplot2::ggplot(ggplot2::aes(x = PC1, y = PC2, label = name, colour = group)) +
+    ggplot2::geom_point() +
+    ggplot2::ggtitle(paste0("PCA ", title)) +
+    ggplot2::xlab(paste0("Principal Component 1 (", round(attr(dat, "percentVar")[1] * 100), "% variance explained)")) +
+    ggplot2::ylab(paste0("Principal Component 2 (", round(attr(dat, "percentVar")[2] * 100), "% variance explained)")) +
+    ggplot2::theme_minimal() +
+    ggrepel::geom_text_repel()
+}
+
+pca_data <- DESeq2::plotPCA(
+  DESeq2::vst(deseq_result, blind = FALSE),
+  intgroup = "treatment",
+  returnData = TRUE
+) %>%
+  # Attach source variable to PCA data for filtering
+  dplyr::left_join(
+    x = .,
+    y = col_data %>% dplyr::select(id, source),
+    by = c("name" = "id")
+  )
+# PCA plot of all samples
+pca_plot(pca_data, "All samples")
+
+# PCA for each source level
+pca_data$source %>%
+  levels() %>%
+  purrr::walk(function(source_level) {
+    pca_data %>%
+      dplyr::filter(source == source_level) %>%
+      pca_plot(paste0(source_level, " samples")) %>%
+      print()
+  })
+```
