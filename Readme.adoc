@@ -111,8 +111,8 @@ xaringan::infinite_moon_reader(
     counts = trapdiff::get_test_counts() %>%
       # Add empty columns to check if detection of these work
       dplyr::mutate(
-        debug_sample_1 = "",
-        debug_sample_2 = ""
+        debug_sample_1 = 1,
+        debug_sample_2 = 2
       )
   )
 )

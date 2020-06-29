@@ -12,6 +12,7 @@ params:
   path_config_json: ""
   save_figures: TRUE
   counts: ""
+  ensembl_version: 99
 ---
 
 ```{r setup, results = "hide", message = FALSE, warning = FALSE}
@@ -263,16 +264,16 @@ main_effect_input <-
     object = deseq_result,
     contrast = list(DESeq2::resultsNames(deseq_result)[3:4])
   ) %>%
-    rmyknife::deseq2_result_to_tibble() %>%
-    # This effect needs to be inverted
-    dplyr::mutate(log2FoldChange = log2FoldChange * -1)
+  rmyknife::deseq2_result_to_tibble() %>%
+  # This effect needs to be inverted
+  dplyr::mutate(log2FoldChange = log2FoldChange * -1)
 
 interaction_effect <-
   DESeq2::results(
     object = deseq_result,
     contrast = list(DESeq2::resultsNames(deseq_result)[4])
   ) %>%
-    rmyknife::deseq2_result_to_tibble()
+  rmyknife::deseq2_result_to_tibble()
 
 select_join <- function(dat) {
   dplyr::select(dat, ensembl_gene_id, log2FoldChange, padj)
@@ -289,7 +290,13 @@ de <- dplyr::bind_rows(
   interaction_effect %>%
     select_join() %>%
     dplyr::mutate(comparison = "interaction_effect"),
-)
+) %>%
+  # Attach variable name
+  rmyknife::attach_biomart(
+    attributes = "external_gene_name",
+    ensembl_version = rmd_params$ensembl_version,
+    verbose = FALSE
+  )
 
 # de <- dplyr::left_join(
 #   x = main_effect_ip %>% select_join(),
@@ -356,4 +363,89 @@ de %>%
 # ) %>%
 #   knitr::kable()
 
+```
+
+```{r interactive-scatterplot}
+plot <- de %>%
+  tidyr::pivot_wider(names_from = comparison, values_from = c(padj, log2FoldChange)) %>%
+  dplyr::filter(padj_interaction_effect <= 0.05) %>%
+  # Some genes names are encoded multiple times by different ensembl gene ids
+  # We therfore need to concatinate the two
+  dplyr::mutate(
+    gene_id = glue::glue("{ensembl_gene_id}_{external_gene_name}")
+  ) %>%
+  crosstalk::SharedData$new(~gene_id, group = "Choose a gene") %>%
+  # crosstalk::SharedData$new(~ensembl_gene_id, group = "Choose a gene") %>%
+  ggplot2::ggplot(
+    mapping = ggplot2::aes(
+      x = log2FoldChange_main_effect_ip,
+      y = log2FoldChange_main_effect_input,
+      color = log2FoldChange_interaction_effect
+    )
+  ) +
+  ggplot2::geom_point() +
+  ggplot2::scale_x_continuous(limits = c(-5, 5)) +
+  ggplot2::scale_y_continuous(limits = c(-5, 5)) +
+  ggplot2::labs(
+    x = "fc_ip",
+    y = "fc_input",
+    colour = "fc_expression"
+  ) +
+  # ggplot2::scale_size(trans = 'reverse') +
+  ggplot2::scale_color_distiller(
+    palette = "RdBu",
+    type = "div",
+    direction = -1,
+    limits = c(-5, 5)
+  )
+
+plot %>%
+  plotly::ggplotly() %>%
+  plotly::highlight(dynamic = TRUE, selectize = TRUE)
+```
+
+```{r violin-plot}
+# Create tidy long format of counts
+violin_plot <- function(dat) {
+  ggplot2::ggplot(
+    data = dat,
+    mapping = ggplot2::aes(
+      x = group,
+      y = value
+    )
+  ) +
+    ggplot2::geom_violin() +
+    ggplot2::geom_jitter(height = 0, width = 0.1)
+    # ggplot2::facet_grid(~gene_id)
+}
+
+plot <- dplyr::left_join(
+  x = col_data %>%
+    dplyr::mutate(group = glue::glue("{source}_{treatment}")) %>%
+    dplyr::select(id, group),
+  y = rmd_params$counts %>%
+    tidyr::pivot_longer(cols = -ensembl_gene_id, names_to = "sample") %>%
+    # Attach variable name
+    rmyknife::attach_biomart(
+      attributes = "external_gene_name",
+      ensembl_version = rmd_params$ensembl_version,
+      verbose = FALSE
+    ),
+  by = c("id" = "sample")
+) %>%
+  dplyr::mutate(
+    gene_id = glue::glue("{ensembl_gene_id}_{external_gene_name}")
+  ) %>%
+  # dplyr::filter(value == 0) %>%
+  dplyr::filter(gene_id %in% c("ENSMUSG00000000003_Pbsn", "ENSMUSG00000000103_Zfy2", "ENSMUSG00000000157_Itgb2l", "ENSMUSG00000000183_Fgf6", "ENSMUSG00000000215_Ins2", "ENSMUSG00000000318_Clec10a", "ENSMUSG00000000381_Wap", "ENSMUSG00000000544_Gpa33", "ENSMUSG00000000606_Vmn2r88", "ENSMUSG00000000617_Grm6")) %>%
+  crosstalk::SharedData$new(~gene_id, group = "Choose a gene") %>%
+  violin_plot()
+
+plot %>%
+  plotly::ggplotly() %>%
+  plotly::highlight(
+    dynamic = TRUE,
+    selectize = TRUE,
+    defaultValues = "ENSMUSG00000000003_Pbsn"
+  )
 ```
