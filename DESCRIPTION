@@ -12,6 +12,7 @@ License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
+biocViews:
 RoxygenNote: 7.1.0
 Remotes:
     paulklemm/rmyknife
@@ -23,4 +24,5 @@ Imports:
     rmarkdown,
     forcats,
     purrr,
-    tibble
+    tibble,
+    DESeq2
