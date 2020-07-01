@@ -315,6 +315,80 @@ de <- dplyr::bind_rows(
 #   )
 ```
 
+<details>
+<summary>Plots per gene</summary>
+
+```{r violin-plot}
+violin_plot <- function(dat) {
+  ggplot2::ggplot(
+    data = dat,
+    mapping = ggplot2::aes(
+      x = group,
+      y = value
+    )
+  ) +
+    ggplot2::geom_point(position = "jitter")
+}
+
+# Create a tidy long format of counts
+plot_dat <- dplyr::left_join(
+  x = col_data %>%
+    dplyr::mutate(group = glue::glue("{source}_{treatment}")) %>%
+    dplyr::select(id, group),
+  y = rmd_params$counts %>%
+    tidyr::pivot_longer(cols = -ensembl_gene_id, names_to = "sample") %>%
+    # Attach variable name
+    rmyknife::attach_biomart(
+      attributes = "external_gene_name",
+      ensembl_version = rmd_params$ensembl_version,
+      verbose = FALSE
+    ),
+  by = c("id" = "sample")
+) %>%
+  # Filtr all genes where we do not get a gene name
+  dplyr::filter(!is.na(external_gene_name)) %>%
+  # Create a unique gene_id variable for filtering
+  dplyr::mutate(
+    gene_id = paste0(ensembl_gene_id, "_", external_gene_name)
+  ) %>%
+  # Attach p-value from interaction effect
+  dplyr::left_join(
+    de %>%
+      tidyr::pivot_wider(names_from = comparison, values_from = c(padj, log2FoldChange)) %>%
+      dplyr::select(ensembl_gene_id, padj_interaction_effect),
+    by = "ensembl_gene_id"
+  ) %>%
+  # Filter only for genes with significant interaction effect
+  dplyr::filter(padj_interaction_effect <= 0.05) %>%
+  dplyr::arrange(padj_interaction_effect)
+
+plot_dat_sd <- plot_dat %>% crosstalk::SharedData$new(~gene_id, group = "Choose a gene")
+crosstalk::filter_select(
+  id = "gene",
+  label = "Select Gene",
+  sharedData = plot_dat_sd,
+  group = ~gene_id,
+  multiple = FALSE
+)
+```
+
+</details>
+
+<details>
+<summary>Filter Result</summary>
+
+```{r barplot}
+
+plot_dat_sd %>%
+  violin_plot() %>%
+  plotly::ggplotly(dynamicTicks = TRUE)
+
+```
+
+</details>
+
+#### DE-Plot
+
 ```{r de-plot}
 de %>%
   tidyr::pivot_wider(names_from = comparison, values_from = c(padj, log2FoldChange)) %>%
@@ -334,7 +408,7 @@ de %>%
   ggplot2::theme_minimal()
 ```
 
-Let's check the DE genes for each 
+Let's check the DE genes for each effect.
 
 ```{r de-summary-table, warning = FALSE, message = FALSE}
 
@@ -374,8 +448,10 @@ plot <- de %>%
   dplyr::mutate(
     gene_id = glue::glue("{ensembl_gene_id}_{external_gene_name}")
   ) %>%
-  crosstalk::SharedData$new(~gene_id, group = "Choose a gene") %>%
-  # crosstalk::SharedData$new(~ensembl_gene_id, group = "Choose a gene") %>%
+  # The white space after the group is actually important. Otherwise the groups
+  # of the two crosstalk objects will be linked. Brushing a gene in one will also
+  # do so in the other plot
+  crosstalk::SharedData$new(~gene_id, group = "Choose a gene ") %>%
   ggplot2::ggplot(
     mapping = ggplot2::aes(
       x = log2FoldChange_main_effect_ip,
@@ -405,143 +481,5 @@ plot %>%
     dynamic = FALSE,
     color = "red",
     selectize = TRUE
-  ) %>%
-  plotly::layout(
-    xaxis = list(
-      rangeselector = list(type = "gene_id")
-    )
   )
 ```
-
-<details>
-<summary>Plots per gene</summary>
-
-```{r violin-plot}
-# Create tidy long format of counts
-violin_plot <- function(dat) {
-  ggplot2::ggplot(
-    data = dat,
-    mapping = ggplot2::aes(
-      x = group,
-      y = value
-    )
-  ) +
-    ggplot2::geom_point() +
-    ggplot2::geom_jitter(height = 0, width = 0.1)
-  # ggplot2::facet_grid(~gene_id)
-}
-
-violin_plot_wide <- function(dat) {
-  # dat <- plot_dat_sd
-  ggplot2::ggplot(
-    data = dat,
-    mapping = ggplot2::aes(
-      # x = group,
-      x =  wt_ip_hfd_1,
-      y =  wt_ip_hfd_4
-    )
-  ) +
-    ggplot2::geom_point()
-  # ggplot2::facet_grid(~gene_id)
-}
-
-plot_dat <- dplyr::left_join(
-  x = col_data %>%
-    dplyr::mutate(group = glue::glue("{source}_{treatment}")) %>%
-    dplyr::select(id, group),
-  y = rmd_params$counts %>%
-    tidyr::pivot_longer(cols = -ensembl_gene_id, names_to = "sample") %>%
-    # Attach variable name
-    rmyknife::attach_biomart(
-      attributes = "external_gene_name",
-      ensembl_version = rmd_params$ensembl_version,
-      verbose = FALSE
-    ),
-  by = c("id" = "sample")
-) %>%
-  dplyr::mutate(
-    gene_id = glue::glue("{ensembl_gene_id}_{external_gene_name}")
-  ) # %>%
-# Make wide format again to have unique gene_id for each row
-#   dplyr::select(-group) %>%
-#  tidyr::pivot_wider(names_from = id, values_from = value)
-
-sig_genes_id <- de %>%
-  tidyr::pivot_wider(names_from = comparison, values_from = c(padj, log2FoldChange)) %>%
-  dplyr::filter(padj_interaction_effect <= 0.05) %>%
-  dplyr::mutate(gene_id = glue::glue("{ensembl_gene_id}_{external_gene_name}")) %>%
-  dplyr::arrange(padj_interaction_effect) %>%
-  # head(200) %>%
-  dplyr::select(gene_id) %>%
-  dplyr::distinct() %>%
-  dplyr::pull()
-
-# DEBUG Filter
-plot_dat <- plot_dat %>%
-  dplyr::filter(gene_id %in% sig_genes_id)
-
-# plot_dat %>%
-#   dplyr::select(-ensembl_gene_id, -external_gene_name) %>%
-#   crosstalk::SharedData$new(~gene_id, group = "Choose a gene") %>%
-#   violin_plot_wide() %>%
-#   plotly::ggplotly() %>%
-#   plotly::highlight(
-#     dynamic = FALSE,
-#     color = "red",
-#     selectize = TRUE
-#   )
-
-# crosstalk::SharedData$new(~gene_id, group = "Choose a gene") %>%
-# violin_plot()
-
-# plot_dat_sd <- crosstalk::SharedData$new(plot_dat, ~gene_id, group = "Choose a gene")
-plot_dat_sd <- crosstalk::SharedData$new(
-  # data = plot_dat %>% dplyr::filter(group %in% c("input_hfd", "ip_hfd", "ip_ncd")) %>% dplyr::select(-group) %>% tidyr::pivot_wider(names_from = id, values_from = value),
-  # data = plot_dat %>% dplyr::filter(group %in% c("input_hfd", "ip_hfd", "ip_ncd")) %>% dplyr::filter(!is.na(external_gene_name)),
-  data = plot_dat,
-  # data = plot_dat %>% dplyr::filter(group %in% c("ip_ncd")) %>% dplyr::filter(!is.na(external_gene_name)),
-  # data = plot_dat %>% dplyr::select(-group) %>% tidyr::pivot_wider(names_from = id, values_from = value),
-  key = ~gene_id,
-  group = "Choose gene"
-)
-
-crosstalk::filter_select(
-  id = "gene",
-  label = "Select Gene",
-  sharedData = plot_dat_sd,
-  group = ~gene_id,
-  multiple = FALSE
-)
-
-v_plot <- plot_dat_sd %>%
-  # violin_plot_wide() %>%
-  violin_plot()
-
-v_plot %>%
-  plotly::ggplotly() #%>%
-  #plotly::highlight(on = "plotly_click", off = "plotly_deselect")
-
-# https://github.com/rstudio/crosstalk/pull/70
-# https://github.com/rstudio/crosstalk/issues/16
-# widgets <- crosstalk::bscols(
-#   widths = c(12),
-#   crosstalk::filter_select("gene_id", "Gene ID", plot_dat_sd, ~gene_id)
-# )
-
-# crosstalk::bscols(
-#   widths = c(4, 8), widgets,
-#   plotly::ggplotly(violin_plot(plot_dat_sd))
-# )
-
-
-# plot_dat_sd %>%
-#   violin_plot() %>%
-#   plotly::ggplotly()
-#   # plotly::highlight(
-#   #   dynamic = TRUE,
-#   #   selectize = TRUE,
-#   #   defaultValues = "ENSMUSG00000000003_Pbsn"
-#   # )
-```
-
-<details>
