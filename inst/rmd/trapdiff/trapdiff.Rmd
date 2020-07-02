@@ -275,6 +275,12 @@ interaction_effect <-
   ) %>%
   rmyknife::deseq2_result_to_tibble()
 
+source_effect <- DESeq2::results(
+  object = deseq_result,
+  contrast = c("source", col_data$source %>% levels())
+) %>%
+  rmyknife::deseq2_result_to_tibble()
+
 select_join <- function(dat) {
   dplyr::select(dat, ensembl_gene_id, log2FoldChange, padj)
 }
@@ -290,6 +296,9 @@ de <- dplyr::bind_rows(
   interaction_effect %>%
     select_join() %>%
     dplyr::mutate(comparison = "interaction_effect"),
+  source_effect %>%
+    select_join() %>%
+    dplyr::mutate(comparison = "source_effect")
 ) %>%
   # Attach variable name
   rmyknife::attach_biomart(
@@ -297,22 +306,6 @@ de <- dplyr::bind_rows(
     ensembl_version = rmd_params$ensembl_version,
     verbose = FALSE
   )
-
-# de <- dplyr::left_join(
-#   x = main_effect_ip %>% select_join(),
-#   y = main_effect_input %>% select_join(),
-#   by = "ensembl_gene_id",
-#   suffix = c(".main_ip", ".main_input")
-# ) %>%
-#   dplyr::left_join(
-#     y = interaction_effect %>%
-#       select_join() %>%
-#       dplyr::rename(
-#         log2FoldChange.interaction = log2FoldChange,
-#         padj.interaction = padj
-#       ),
-#     by = "ensembl_gene_id"
-#   )
 ```
 
 <details>
@@ -389,25 +382,6 @@ plot_dat_sd %>%
 
 #### DE-Plot
 
-```{r de-plot}
-de %>%
-  tidyr::pivot_wider(names_from = comparison, values_from = c(padj, log2FoldChange)) %>%
-  ggplot2::ggplot(
-    mapping = ggplot2::aes(
-      x = log2FoldChange_main_effect_ip,
-      y = log2FoldChange_main_effect_input,
-      color = log2FoldChange_interaction_effect,
-      shape = padj_interaction_effect <= 0.05
-    )
-  ) +
-  ggplot2::geom_point() +
-  ggplot2::scale_x_continuous(limits = c(-5, 5)) +
-  ggplot2::scale_y_continuous(limits = c(-5, 5)) +
-  # ggplot2::scale_size(trans = 'reverse') +
-  ggplot2::scale_color_distiller(palette = "RdBu", type = "div", direction = -1, limits = c(-5, 5)) +
-  ggplot2::theme_minimal()
-```
-
 Let's check the DE genes for each effect.
 
 ```{r de-summary-table, warning = FALSE, message = FALSE}
@@ -424,19 +398,70 @@ de %>%
   ) %>%
   rmarkdown::paged_table()
 
-# tibble::tibble(
-#   name = c("effect", "Up-regulated genes", "Down-regulated genes"),
-#   val = c(
-#     main_effect_HFD_NCD_IP_tib %>%
-#       dplyr::filter(padj <= 0.05 & log2FoldChange > 0) %>%
-#       nrow(),
-#     main_effect_HFD_NCD_IP_tib %>%
-#       dplyr::filter(padj <= 0.05 & log2FoldChange < 0) %>%
-#       nrow()
-#   )
-# ) %>%
-#   knitr::kable()
+```
 
+```{r de-plot}
+de %>%
+  tidyr::pivot_wider(names_from = comparison, values_from = c(padj, log2FoldChange)) %>%
+  ggplot2::ggplot(
+    mapping = ggplot2::aes(
+      x = log2FoldChange_main_effect_ip,
+      y = log2FoldChange_main_effect_input,
+      color = log2FoldChange_interaction_effect,
+      shape = padj_interaction_effect <= 0.05
+    )
+  ) +
+  ggplot2::geom_point() +
+  ggplot2::scale_x_continuous(limits = c(-5, 5)) +
+  ggplot2::scale_y_continuous(limits = c(-5, 5)) +
+  ggplot2::labs(
+    x = "fc_ip",
+    y = "fc_input",
+    colour = "fc_interaction"
+  ) +
+  # ggplot2::scale_size(trans = 'reverse') +
+  ggplot2::scale_color_distiller(palette = "RdBu", type = "div", direction = -1, limits = c(-5, 5)) +
+  ggplot2::theme_minimal()
+
+de %>%
+  tidyr::pivot_wider(names_from = comparison, values_from = c(padj, log2FoldChange)) %>%
+  dplyr::filter(padj_source_effect <= 0.05) %>%
+  ggplot2::ggplot(
+    mapping = ggplot2::aes(
+      x = log2FoldChange_main_effect_ip,
+      y = log2FoldChange_main_effect_input,
+      color = log2FoldChange_source_effect
+    )
+  ) +
+  ggplot2::geom_point() +
+  ggplot2::scale_x_continuous(limits = c(-5, 5)) +
+  ggplot2::scale_y_continuous(limits = c(-5, 5)) +
+  ggplot2::labs(
+    x = "fc_ip",
+    y = "fc_input",
+    colour = "fc_source"
+  ) +
+  # ggplot2::scale_size(trans = 'reverse') +
+  ggplot2::scale_color_distiller(palette = "RdBu", type = "div", direction = -1, limits = c(-5, 5)) +
+  ggplot2::theme_minimal()
+```
+
+Let's check how big the overlap between source and interaction is
+
+```{r overlap-source-interaction}
+de %>%
+  tidyr::pivot_wider(
+    names_from = comparison,
+    values_from = c(padj, log2FoldChange)
+  ) %>%
+  dplyr::mutate(
+    source_regulated = padj_source_effect <= 0.05,
+    interaction_regulated = padj_interaction_effect <= 0.05
+  ) %>%
+  dplyr::select(source_regulated, interaction_regulated) %>%
+  # Replace NA values by "FALSE"
+  replace(is.na(.), FALSE) %>%
+  ComplexUpset::upset(intersect = colnames(.))
 ```
 
 ```{r interactive-scatterplot}
@@ -465,7 +490,7 @@ plot <- de %>%
   ggplot2::labs(
     x = "fc_ip",
     y = "fc_input",
-    colour = "fc_expression"
+    colour = "fc_interaction"
   ) +
   # ggplot2::scale_size(trans = 'reverse') +
   ggplot2::scale_color_distiller(
