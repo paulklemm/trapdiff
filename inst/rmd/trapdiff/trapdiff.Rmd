@@ -312,14 +312,12 @@ pca_data$source %>%
 
 ```{r get-contrasts}
 # This works at the moment only for two treatment groups
-## Main effect HFD vs NCD in IP
 main_effect_ip <- DESeq2::results(
   object = deseq_result,
   contrast = c("treatment", col_data$treatment %>% levels())
 ) %>%
   rmyknife::deseq2_result_to_tibble()
 
-# Main Effect HFD vs NCD in Input
 main_effect_input <-
   DESeq2::results(
     object = deseq_result,
@@ -336,11 +334,28 @@ interaction_effect <-
   ) %>%
   rmyknife::deseq2_result_to_tibble()
 
-source_effect <- DESeq2::results(
+source_effect_a <- DESeq2::results(
   object = deseq_result,
   contrast = c("source", col_data$source %>% levels())
 ) %>%
   rmyknife::deseq2_result_to_tibble()
+
+source_effect_b <- DESeq2::results(
+  object = deseq_result,
+  contrast = list(c(
+    DESeq2::resultsNames(deseq_result)[2],
+    DESeq2::resultsNames(deseq_result)[4]
+  ))
+) %>%
+  rmyknife::deseq2_result_to_tibble() %>%
+  # This effect needs to be inverted
+  dplyr::mutate(log2FoldChange = log2FoldChange * -1)
+
+# source_effect <- DESeq2::results(
+#   object = deseq_result,
+#   contrast = c("source", col_data$source %>% levels())
+# ) %>%
+#   rmyknife::deseq2_result_to_tibble()
 
 select_join <- function(dat) {
   dplyr::select(dat, ensembl_gene_id, log2FoldChange, padj)
@@ -357,9 +372,12 @@ de <- dplyr::bind_rows(
   interaction_effect %>%
     select_join() %>%
     dplyr::mutate(comparison = "interaction_effect"),
-  source_effect %>%
+  source_effect_a %>%
     select_join() %>%
-    dplyr::mutate(comparison = "source_effect")
+    dplyr::mutate(comparison = "source_effect_a"),
+  source_effect_b %>%
+    select_join() %>%
+    dplyr::mutate(comparison = "source_effect_b")
 ) %>%
   # Attach variable name
   rmyknife::attach_biomart(
@@ -368,6 +386,11 @@ de <- dplyr::bind_rows(
     verbose = FALSE
   )
 
+de_wide <- de %>%
+  tidyr::pivot_wider(
+    names_from = comparison,
+    values_from = c(padj, log2FoldChange)
+  )
 ```
 
 Let's check the DE genes for each effect.
@@ -463,8 +486,33 @@ plot_dat_sd %>%
 #### DE-Plot
 
 ```{r interactive-scatterplot}
-plot <- de %>%
-  tidyr::pivot_wider(names_from = comparison, values_from = c(padj, log2FoldChange)) %>%
+fc_scatterplot <-
+  function(
+           ggplot_dat,
+           colour_lab,
+           title,
+           x_lab = "fc_ip",
+           y_lab = "fc_input",
+           point_alpha = 0.3
+  ) {
+    ggplot_dat +
+      ggplot2::geom_point(
+        alpha = point_alpha
+      ) +
+      ggplot2::scale_x_continuous(limits = c(-5, 5)) +
+      ggplot2::scale_y_continuous(limits = c(-5, 5)) +
+      ggplot2::labs(
+        x = x_lab,
+        y = y_lab,
+        colour = colour_lab
+      ) +
+      # ggplot2::scale_size(trans = 'reverse') +
+      ggplot2::scale_color_distiller(palette = "RdBu", type = "div", direction = -1, limits = c(-5, 5)) +
+      ggplot2::theme_minimal() +
+      ggplot2::ggtitle(title)
+  }
+
+plot <- de_wide %>%
   dplyr::filter(padj_interaction_effect <= 0.05) %>%
   # Some genes names are encoded multiple times by different ensembl gene ids
   # We therfore need to concatinate the two
@@ -481,21 +529,11 @@ plot <- de %>%
       y = log2FoldChange_main_effect_input,
       color = log2FoldChange_interaction_effect
     )
-  ) +
-  ggplot2::geom_point() +
-  ggplot2::scale_x_continuous(limits = c(-5, 5)) +
-  ggplot2::scale_y_continuous(limits = c(-5, 5)) +
-  ggplot2::labs(
-    x = "fc_ip",
-    y = "fc_input",
-    colour = "fc_interaction"
-  ) +
-  # ggplot2::scale_size(trans = 'reverse') +
-  ggplot2::scale_color_distiller(
-    palette = "RdBu",
-    type = "div",
-    direction = -1,
-    limits = c(-5, 5)
+  ) %>%
+  fc_scatterplot(
+    colour_lab = "FC interaction effect",
+    title = "FC main effect coloured by FC interaction effect",
+    point_alpha = 1
   )
 
 plot %>%
@@ -508,8 +546,7 @@ plot %>%
 ```
 
 ```{r de-plot}
-de %>%
-  tidyr::pivot_wider(names_from = comparison, values_from = c(padj, log2FoldChange)) %>%
+de_wide %>%
   ggplot2::ggplot(
     mapping = ggplot2::aes(
       x = log2FoldChange_main_effect_ip,
@@ -517,18 +554,12 @@ de %>%
       color = log2FoldChange_interaction_effect,
       shape = padj_interaction_effect <= 0.05
     )
-  ) +
-  ggplot2::geom_point() +
-  ggplot2::scale_x_continuous(limits = c(-5, 5)) +
-  ggplot2::scale_y_continuous(limits = c(-5, 5)) +
-  ggplot2::labs(
-    x = "fc_ip",
-    y = "fc_input",
-    colour = "fc_interaction"
-  ) +
-  # ggplot2::scale_size(trans = 'reverse') +
-  ggplot2::scale_color_distiller(palette = "RdBu", type = "div", direction = -1, limits = c(-5, 5)) +
-  ggplot2::theme_minimal()
+  ) %>%
+  fc_scatterplot(
+    colour_lab = "fc_interaction",
+    title = "FC main effect coloured by FC interaction effect",
+    point_alpha = 1
+  )
 ```
 
 <details>
@@ -539,28 +570,33 @@ FC Treatment in IP and Input with color of IP vs Input.
 ```{r additional-de-plot}
 de %>%
   tidyr::pivot_wider(names_from = comparison, values_from = c(padj, log2FoldChange)) %>%
-  dplyr::filter(padj_source_effect <= 0.05) %>%
+  dplyr::filter(padj_source_effect_a <= 0.05) %>%
   ggplot2::ggplot(
     mapping = ggplot2::aes(
       x = log2FoldChange_main_effect_ip,
       y = log2FoldChange_main_effect_input,
-      color = log2FoldChange_source_effect
+      color = log2FoldChange_source_effect_a
     )
-  ) +
-  ggplot2::geom_point(
-    alpha = 0.3
-  ) +
-  ggplot2::scale_x_continuous(limits = c(-5, 5)) +
-  ggplot2::scale_y_continuous(limits = c(-5, 5)) +
-  ggplot2::labs(
-    x = "fc_ip",
-    y = "fc_input",
-    colour = "fc_source"
-  ) +
-  # ggplot2::scale_size(trans = 'reverse') +
-  ggplot2::scale_color_distiller(palette = "RdBu", type = "div", direction = -1, limits = c(-5, 5)) +
-  ggplot2::theme_minimal() +
-  ggplot2::ggtitle("FC Treatment in IP and Input with color of IP vs Input")
+  ) %>%
+  fc_scatterplot(
+    title = "FC Treatment in IP and Input with color of IP vs Input (in 'A' samples)",
+    colour_lab = "FC source A"
+  )
+
+de %>%
+  tidyr::pivot_wider(names_from = comparison, values_from = c(padj, log2FoldChange)) %>%
+  dplyr::filter(padj_source_effect_b <= 0.05) %>%
+  ggplot2::ggplot(
+    mapping = ggplot2::aes(
+      x = log2FoldChange_main_effect_ip,
+      y = log2FoldChange_main_effect_input,
+      color = log2FoldChange_source_effect_b
+    )
+  ) %>%
+  fc_scatterplot(
+    title = "FC Treatment in IP and Input with color of IP vs Input (in 'B' samples)",
+    colour_lab = "FC source B"
+  )
 ```
 
 Let's check how big the overlap between source and interaction is.
@@ -572,10 +608,11 @@ de %>%
     values_from = c(padj, log2FoldChange)
   ) %>%
   dplyr::mutate(
-    source_regulated = padj_source_effect <= 0.05,
+    source_a_regulated = padj_source_effect_a <= 0.05,
+    source_b_regulated = padj_source_effect_b <= 0.05,
     interaction_regulated = padj_interaction_effect <= 0.05
   ) %>%
-  dplyr::select(source_regulated, interaction_regulated) %>%
+  dplyr::select(source_a_regulated, source_b_regulated, interaction_regulated) %>%
   # Replace NA values by "FALSE"
   replace(is.na(.), FALSE) %>%
   ComplexUpset::upset(intersect = colnames(.))
