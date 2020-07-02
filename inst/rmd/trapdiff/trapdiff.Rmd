@@ -539,11 +539,16 @@ plot <- de_wide %>%
 plot %>%
   plotly::ggplotly() %>%
   plotly::highlight(
+    on = "plotly_click",
+    off = "plotly_doubleclick",
     dynamic = FALSE,
     color = "red",
     selectize = TRUE
   )
 ```
+
+<details>
+<summary>Supplementary plots</summary>
 
 ```{r de-plot}
 de_wide %>%
@@ -562,14 +567,8 @@ de_wide %>%
   )
 ```
 
-<details>
-<summary>Supplementary plots</summary>
-
-FC Treatment in IP and Input with color of IP vs Input.
-
 ```{r additional-de-plot}
-de %>%
-  tidyr::pivot_wider(names_from = comparison, values_from = c(padj, log2FoldChange)) %>%
+de_wide %>%
   dplyr::filter(padj_source_effect_a <= 0.05) %>%
   ggplot2::ggplot(
     mapping = ggplot2::aes(
@@ -583,8 +582,7 @@ de %>%
     colour_lab = "FC source A"
   )
 
-de %>%
-  tidyr::pivot_wider(names_from = comparison, values_from = c(padj, log2FoldChange)) %>%
+de_wide %>%
   dplyr::filter(padj_source_effect_b <= 0.05) %>%
   ggplot2::ggplot(
     mapping = ggplot2::aes(
@@ -602,11 +600,7 @@ de %>%
 Let's check how big the overlap between source and interaction is.
 
 ```{r overlap-source-interaction}
-de %>%
-  tidyr::pivot_wider(
-    names_from = comparison,
-    values_from = c(padj, log2FoldChange)
-  ) %>%
+de_wide %>%
   dplyr::mutate(
     source_a_regulated = padj_source_effect_a <= 0.05,
     source_b_regulated = padj_source_effect_b <= 0.05,
