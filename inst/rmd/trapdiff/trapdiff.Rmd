@@ -12,7 +12,10 @@ params:
   path_config_json: ""
   save_figures: TRUE
   counts: ""
+  counts_min: 10
   ensembl_version: 99
+  biotypes_filter: !r NA
+  debug_cache: FALSE
 ---
 
 ```{r setup, results = "hide", message = FALSE, warning = FALSE}
@@ -153,13 +156,57 @@ col_data <- col_data %>%
   dplyr::filter(!is.na(treatment) & !is.na(source))
 
 # Convert counts to integer to comply with DEseq2 standards
-counts %<>%
+counts <- counts %>%
   dplyr::mutate_if(is.double, round) %>%
   dplyr::mutate_if(is.double, as.integer)
 
 ```
 
-The head of the counts table looks as follows
+```{r remove-min-counts}
+
+# Now filter genes that do not have at least one sample more than counts_min counts
+# Get gene ids that satisfy the condition
+genes_satisfying_min_counts <-
+  counts %>%
+  # Make a long format to make computation easier
+  tidyr::pivot_longer(cols = -ensembl_gene_id,
+    names_to = "sample",
+    values_to = "count"
+  ) %>%
+  dplyr::filter(count >= rmd_params$counts_min) %>%
+  dplyr::select(ensembl_gene_id) %>%
+  dplyr::distinct() %>%
+  dplyr::pull()
+
+counts <- counts %>%
+  dplyr::filter(ensembl_gene_id %in% genes_satisfying_min_counts)
+
+```
+
+We keep `r genes_satisfying_min_counts %>% length()` genes where at least one sample has a count of `r rmd_params$counts_min` or more.
+
+```{r remove-biotypes}
+
+# Default report message.
+remove_biotypes_report <- "We keep genes of all biotypes."
+# Filter for biotypes of interest
+if (!is.na(rmd_params$biotypes_filter)) {
+  counts <- counts %>%
+    rmyknife::attach_biomart(
+      attributes = "gene_biotype",
+      verbose = FALSE,
+      ensembl_version = rmd_params$ensembl_version
+    ) %>%
+    dplyr::filter(gene_biotype %in% rmd_params$biotypes_filter)
+  remove_biotypes_report <-
+    glue::glue("We keep {counts %>% nrow()} genes that are of bioype(s) {rmd_params$biotypes_filter}")
+}
+
+```
+
+`r remove_biotypes_report`
+
+The head of the counts table looks as follows.
 
 ```{r print_top_entries}
 
@@ -183,7 +230,7 @@ knitr::kable(col_data)
 <details>
 <summary>Show DESeq2 messages</summary>
 
-```{r run-deseq2, cache = TRUE}
+```{r run-deseq2, cache = rmd_params$debug_cache}
 
 deseq_data <- DESeq2::DESeqDataSetFromMatrix(
   countData = counts %>% as.data.frame(),
@@ -302,17 +349,38 @@ de <- dplyr::bind_rows(
 ) %>%
   # Attach variable name
   rmyknife::attach_biomart(
-    attributes = "external_gene_name",
+    attributes = c("external_gene_name"),
     ensembl_version = rmd_params$ensembl_version,
     verbose = FALSE
   )
+
 ```
 
-<details>
-<summary>Plots per gene</summary>
+Let's check the DE genes for each effect.
 
-```{r violin-plot}
-violin_plot <- function(dat) {
+```{r de-summary-table, warning = FALSE, message = FALSE}
+
+de %>%
+  dplyr::mutate(
+    sig_up_regulated = padj <= 0.05 & log2FoldChange > 0,
+    sig_down_regulated = padj <= 0.05 & log2FoldChange < 0
+  ) %>%
+  dplyr::group_by(comparison) %>%
+  dplyr::summarise(
+    up_regulated = sum(sig_up_regulated, na.rm = TRUE),
+    down_regulated = sum(sig_down_regulated, na.rm = TRUE),
+  ) %>%
+  rmarkdown::paged_table()
+
+```
+
+#### Gene Plots
+
+Because of a technically limitation, please first select a gene of interest here and then open the plot.
+Otherwise this will drastically slow down your browser.
+
+```{r prepare-gene-plot}
+gene_plot <- function(dat) {
   ggplot2::ggplot(
     data = dat,
     mapping = ggplot2::aes(
@@ -353,6 +421,7 @@ plot_dat <- dplyr::left_join(
   ) %>%
   # Filter only for genes with significant interaction effect
   dplyr::filter(padj_interaction_effect <= 0.05) %>%
+  dplyr::filter(!is.na(padj_interaction_effect)) %>%
   dplyr::arrange(padj_interaction_effect)
 
 plot_dat_sd <- plot_dat %>% crosstalk::SharedData$new(~gene_id, group = "Choose a gene")
@@ -365,104 +434,19 @@ crosstalk::filter_select(
 )
 ```
 
-</details>
-
 <details>
-<summary>Filter Result</summary>
+<summary>Plot</summary>
 
-```{r barplot}
+```{r gene-plot}
 
 plot_dat_sd %>%
-  violin_plot() %>%
+  gene_plot() %>%
   plotly::ggplotly(dynamicTicks = TRUE)
-
 ```
 
 </details>
 
 #### DE-Plot
-
-Let's check the DE genes for each effect.
-
-```{r de-summary-table, warning = FALSE, message = FALSE}
-
-de %>%
-  dplyr::mutate(
-    sig_up_regulated = padj <= 0.05 & log2FoldChange > 0,
-    sig_down_regulated = padj <= 0.05 & log2FoldChange < 0
-  ) %>%
-  dplyr::group_by(comparison) %>%
-  dplyr::summarise(
-    up_regulated = sum(sig_up_regulated, na.rm = TRUE),
-    down_regulated = sum(sig_down_regulated, na.rm = TRUE),
-  ) %>%
-  rmarkdown::paged_table()
-
-```
-
-```{r de-plot}
-de %>%
-  tidyr::pivot_wider(names_from = comparison, values_from = c(padj, log2FoldChange)) %>%
-  ggplot2::ggplot(
-    mapping = ggplot2::aes(
-      x = log2FoldChange_main_effect_ip,
-      y = log2FoldChange_main_effect_input,
-      color = log2FoldChange_interaction_effect,
-      shape = padj_interaction_effect <= 0.05
-    )
-  ) +
-  ggplot2::geom_point() +
-  ggplot2::scale_x_continuous(limits = c(-5, 5)) +
-  ggplot2::scale_y_continuous(limits = c(-5, 5)) +
-  ggplot2::labs(
-    x = "fc_ip",
-    y = "fc_input",
-    colour = "fc_interaction"
-  ) +
-  # ggplot2::scale_size(trans = 'reverse') +
-  ggplot2::scale_color_distiller(palette = "RdBu", type = "div", direction = -1, limits = c(-5, 5)) +
-  ggplot2::theme_minimal()
-
-de %>%
-  tidyr::pivot_wider(names_from = comparison, values_from = c(padj, log2FoldChange)) %>%
-  dplyr::filter(padj_source_effect <= 0.05) %>%
-  ggplot2::ggplot(
-    mapping = ggplot2::aes(
-      x = log2FoldChange_main_effect_ip,
-      y = log2FoldChange_main_effect_input,
-      color = log2FoldChange_source_effect
-    )
-  ) +
-  ggplot2::geom_point() +
-  ggplot2::scale_x_continuous(limits = c(-5, 5)) +
-  ggplot2::scale_y_continuous(limits = c(-5, 5)) +
-  ggplot2::labs(
-    x = "fc_ip",
-    y = "fc_input",
-    colour = "fc_source"
-  ) +
-  # ggplot2::scale_size(trans = 'reverse') +
-  ggplot2::scale_color_distiller(palette = "RdBu", type = "div", direction = -1, limits = c(-5, 5)) +
-  ggplot2::theme_minimal()
-```
-
-Let's check how big the overlap between source and interaction is
-
-```{r overlap-source-interaction}
-de %>%
-  tidyr::pivot_wider(
-    names_from = comparison,
-    values_from = c(padj, log2FoldChange)
-  ) %>%
-  dplyr::mutate(
-    source_regulated = padj_source_effect <= 0.05,
-    interaction_regulated = padj_interaction_effect <= 0.05
-  ) %>%
-  dplyr::select(source_regulated, interaction_regulated) %>%
-  # Replace NA values by "FALSE"
-  replace(is.na(.), FALSE) %>%
-  ComplexUpset::upset(intersect = colnames(.))
-```
 
 ```{r interactive-scatterplot}
 plot <- de %>%
@@ -508,3 +492,79 @@ plot %>%
     selectize = TRUE
   )
 ```
+
+```{r de-plot}
+de %>%
+  tidyr::pivot_wider(names_from = comparison, values_from = c(padj, log2FoldChange)) %>%
+  ggplot2::ggplot(
+    mapping = ggplot2::aes(
+      x = log2FoldChange_main_effect_ip,
+      y = log2FoldChange_main_effect_input,
+      color = log2FoldChange_interaction_effect,
+      shape = padj_interaction_effect <= 0.05
+    )
+  ) +
+  ggplot2::geom_point() +
+  ggplot2::scale_x_continuous(limits = c(-5, 5)) +
+  ggplot2::scale_y_continuous(limits = c(-5, 5)) +
+  ggplot2::labs(
+    x = "fc_ip",
+    y = "fc_input",
+    colour = "fc_interaction"
+  ) +
+  # ggplot2::scale_size(trans = 'reverse') +
+  ggplot2::scale_color_distiller(palette = "RdBu", type = "div", direction = -1, limits = c(-5, 5)) +
+  ggplot2::theme_minimal()
+```
+
+<details>
+<summary>Supplementary plots</summary>
+
+FC Treatment in IP and Input with color of IP vs Input.
+
+```{r additional-de-plot}
+de %>%
+  tidyr::pivot_wider(names_from = comparison, values_from = c(padj, log2FoldChange)) %>%
+  dplyr::filter(padj_source_effect <= 0.05) %>%
+  ggplot2::ggplot(
+    mapping = ggplot2::aes(
+      x = log2FoldChange_main_effect_ip,
+      y = log2FoldChange_main_effect_input,
+      color = log2FoldChange_source_effect
+    )
+  ) +
+  ggplot2::geom_point(
+    alpha = 0.3
+  ) +
+  ggplot2::scale_x_continuous(limits = c(-5, 5)) +
+  ggplot2::scale_y_continuous(limits = c(-5, 5)) +
+  ggplot2::labs(
+    x = "fc_ip",
+    y = "fc_input",
+    colour = "fc_source"
+  ) +
+  # ggplot2::scale_size(trans = 'reverse') +
+  ggplot2::scale_color_distiller(palette = "RdBu", type = "div", direction = -1, limits = c(-5, 5)) +
+  ggplot2::theme_minimal() +
+  ggplot2::ggtitle("FC Treatment in IP and Input with color of IP vs Input")
+```
+
+Let's check how big the overlap between source and interaction is.
+
+```{r overlap-source-interaction}
+de %>%
+  tidyr::pivot_wider(
+    names_from = comparison,
+    values_from = c(padj, log2FoldChange)
+  ) %>%
+  dplyr::mutate(
+    source_regulated = padj_source_effect <= 0.05,
+    interaction_regulated = padj_interaction_effect <= 0.05
+  ) %>%
+  dplyr::select(source_regulated, interaction_regulated) %>%
+  # Replace NA values by "FALSE"
+  replace(is.na(.), FALSE) %>%
+  ComplexUpset::upset(intersect = colnames(.))
+```
+
+</details>
