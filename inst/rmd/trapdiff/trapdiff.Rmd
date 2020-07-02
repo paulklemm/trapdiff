@@ -12,7 +12,7 @@ params:
   path_config_json: ""
   save_figures: TRUE
   counts: ""
-  counts_min: 10
+  counts_min: 0
   ensembl_version: 99
   biotypes_filter: !r NA
   debug_cache: FALSE
@@ -164,16 +164,28 @@ counts <- counts %>%
 
 ```{r remove-min-counts}
 
-# Now filter genes that do not have at least one sample more than counts_min counts
-# Get gene ids that satisfy the condition
-genes_satisfying_min_counts <-
-  counts %>%
+# Get mean counts for each experimental group
+genes_satisfying_min_counts <- counts %>%
   # Make a long format to make computation easier
-  tidyr::pivot_longer(cols = -ensembl_gene_id,
+  tidyr::pivot_longer(
+    cols = -ensembl_gene_id,
     names_to = "sample",
     values_to = "count"
   ) %>%
-  dplyr::filter(count >= rmd_params$counts_min) %>%
+  dplyr::left_join(
+    x = .,
+    y = col_data %>%
+      dplyr::mutate(experimental_group = glue::glue("{source}_{treatment}")) %>%
+      dplyr::select(id, experimental_group),
+    by = c("sample" = "id")
+  ) %>%
+  # Group by gene and experimental group
+  dplyr::group_by(ensembl_gene_id, experimental_group) %>%
+  # Get mean gene expression per experimental group
+  dplyr::summarise(mean_count = mean(count, na.rm = TRUE)) %>%
+  dplyr::ungroup() %>%
+  # Filter for min_count
+  dplyr::filter(mean_count >= rmd_params$counts_min) %>%
   dplyr::select(ensembl_gene_id) %>%
   dplyr::distinct() %>%
   dplyr::pull()
@@ -183,7 +195,7 @@ counts <- counts %>%
 
 ```
 
-We keep `r genes_satisfying_min_counts %>% length()` genes where at least one sample has a count of `r rmd_params$counts_min` or more.
+We keep `r genes_satisfying_min_counts %>% length()` genes where the mean of gene counts in one of the groups (`r col_data %>% dplyr::mutate(experimental_group = glue::glue("{source}_{treatment}")) %>% dplyr::select(experimental_group) %>% dplyr::distinct() %>% dplyr::pull()`) a count of `r rmd_params$counts_min` or more.
 
 ```{r remove-biotypes}
 
@@ -194,10 +206,12 @@ if (!is.na(rmd_params$biotypes_filter)) {
   counts <- counts %>%
     rmyknife::attach_biomart(
       attributes = "gene_biotype",
-      verbose = FALSE,
-      ensembl_version = rmd_params$ensembl_version
+      ensembl_version = rmd_params$ensembl_version,
+      verbose = FALSE
     ) %>%
-    dplyr::filter(gene_biotype %in% rmd_params$biotypes_filter)
+    dplyr::filter(gene_biotype %in% rmd_params$biotypes_filter) %>%
+    # Remove gene_biotype again
+    dplyr::select(-gene_biotype)
   remove_biotypes_report <-
     glue::glue("We keep {counts %>% nrow()} genes that are of bioype(s) {rmd_params$biotypes_filter}")
 }

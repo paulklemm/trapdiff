@@ -110,7 +110,7 @@ xaringan::infinite_moon_reader(
     path_config_json = paste0(mywd, "/trapdiff-debug/config.json"),
     biotypes_filter = "protein_coding",
     debug_cache = TRUE,
-    counts_min = 10,
+    counts_min = 30,
     counts = trapdiff::get_test_counts() %>%
       # Add empty columns to check if detection of these work
       dplyr::mutate(
