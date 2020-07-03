@@ -461,7 +461,10 @@ plot_dat <- dplyr::left_join(
   dplyr::filter(!is.na(padj_interaction_effect)) %>%
   dplyr::arrange(padj_interaction_effect)
 
-plot_dat_sd <- plot_dat %>% crosstalk::SharedData$new(~gene_id, group = "Choose a gene")
+# The white space after the group is actually important. Otherwise the groups
+  # of the two crosstalk objects will be linked. Brushing a gene in one will also
+  # do so in the other plot
+plot_dat_sd <- plot_dat %>% crosstalk::SharedData$new(~gene_id, group = "Choose a gene ")
 crosstalk::filter_select(
   id = "gene",
   label = "Select Gene",
@@ -483,7 +486,38 @@ plot_dat_sd %>%
 
 </details>
 
-#### DE-Plot
+```{r datatable, warning = FALSE}
+
+de_wide %>%
+  dplyr::mutate(
+    gene_id = paste0(ensembl_gene_id, "_", external_gene_name)
+  ) %>%
+  dplyr::select(-ensembl_gene_id, -external_gene_name) %>%
+  dplyr::select(gene_id, dplyr::everything()) %>%
+  # Round all values to 4 decimals
+  dplyr::mutate_if(is.numeric, round, 4) %>%
+  crosstalk::SharedData$new(~gene_id, group = "Choose a gene") %>%
+  DT::datatable(
+    # extensions = c("Scroller", "ColReorder", "FixedColumns"),
+    extensions = c("Scroller"),
+    # class = "compact",
+    # style="bootstrap",
+    options = list(
+      # dom = "t",
+      scrollX = TRUE,
+      # colReorder = list(realtime = FALSE),
+      # fixedColumns = list(leftColumns = 2),
+      # Makes the table more responsive when it's really big
+      scrollY = 300,
+      scroller = TRUE# ,
+      # deferRender = TRUE
+    )
+    # extensions = "Scroller",
+    # style = "bootstrap",
+    # class = "compact",
+    # options = list(deferRender = TRUE)
+  )
+```
 
 ```{r interactive-scatterplot}
 fc_scatterplot <-
@@ -493,8 +527,7 @@ fc_scatterplot <-
            title,
            x_lab = "fc_ip",
            y_lab = "fc_input",
-           point_alpha = 0.3
-  ) {
+           point_alpha = 0.3) {
     ggplot_dat +
       ggplot2::geom_point(
         alpha = point_alpha
@@ -519,10 +552,7 @@ plot <- de_wide %>%
   dplyr::mutate(
     gene_id = glue::glue("{ensembl_gene_id}_{external_gene_name}")
   ) %>%
-  # The white space after the group is actually important. Otherwise the groups
-  # of the two crosstalk objects will be linked. Brushing a gene in one will also
-  # do so in the other plot
-  crosstalk::SharedData$new(~gene_id, group = "Choose a gene ") %>%
+  crosstalk::SharedData$new(~gene_id, group = "Choose a gene") %>%
   ggplot2::ggplot(
     mapping = ggplot2::aes(
       x = log2FoldChange_main_effect_ip,
