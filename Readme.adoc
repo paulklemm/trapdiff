@@ -111,6 +111,8 @@ xaringan::infinite_moon_reader(
     biotypes_filter = "protein_coding",
     debug_cache = TRUE,
     counts_min = 30,
+    save_rds = TRUE,
+    save_excel = TRUE,
     counts = trapdiff::get_test_counts() %>%
       # Add empty columns to check if detection of these work
       dplyr::mutate(
