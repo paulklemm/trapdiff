@@ -109,7 +109,7 @@ xaringan::infinite_moon_reader(
   params = list(
     path_config_json = paste0(mywd, "/trapdiff-debug/config.json"),
     biotypes_filter = "protein_coding",
-    debug_cache = TRUE,
+    debug_cache = FALSE,
     counts_min = 30,
     save_rds = TRUE,
     save_excel = TRUE,
@@ -137,7 +137,7 @@ xaringan::infinite_moon_reader(
   params = list(
     path_config_json = paste0(mywd, "/trapdiff-debug/config_il6.json"),
     biotypes_filter = "protein_coding",
-    debug_cache = TRUE,
+    debug_cache = FALSE,
     counts_min = 30,
     save_rds = TRUE,
     save_excel = TRUE,
