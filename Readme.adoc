@@ -113,7 +113,7 @@ xaringan::infinite_moon_reader(
     counts_min = 30,
     save_rds = TRUE,
     save_excel = TRUE,
-    counts = trapdiff::get_test_counts() %>%
+    counts = trapdiff::get_test_counts_marta() %>%
       # Add empty columns to check if detection of these work
       dplyr::mutate(
         debug_sample_1 = 1,

@@ -1,7 +1,7 @@
 #' Get test counts. This is for debugging purposes only.
 #' @export
 #' @import readr dplyr
-get_test_counts <- function() {
+get_test_counts_marta <- function() {
   dplyr::left_join(
     # HFD
     system.file(
