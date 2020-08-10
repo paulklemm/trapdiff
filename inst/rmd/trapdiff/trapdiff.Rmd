@@ -463,17 +463,24 @@ plot_dat <- dplyr::left_join(
   dplyr::filter(!is.na(padj_interaction_effect)) %>%
   dplyr::arrange(padj_interaction_effect)
 
-# The white space after the group is actually important. Otherwise the groups
-# of the two crosstalk objects will be linked. Brushing a gene in one will also
-# do so in the other plot
-plot_dat_sd <- plot_dat %>% crosstalk::SharedData$new(~gene_id, group = "Choose a gene ")
-crosstalk::filter_select(
-  id = "gene",
-  label = "Select Gene",
-  sharedData = plot_dat_sd,
-  group = ~gene_id,
-  multiple = FALSE
-)
+# We have to have at least one differentially expressed gene with the
+# interaction term, otherwise we cannot create the SharedData object.
+# If we have 0, then just use the original plot_dat
+if (nrow(plot_dat) > 0) {
+  # The white space after the group is actually important. Otherwise the groups
+  # of the two crosstalk objects will be linked. Brushing a gene in one will also
+  # do so in the other plot
+  plot_dat_sd <- plot_dat %>% crosstalk::SharedData$new(~gene_id, group = "Choose a gene ")
+  crosstalk::filter_select(
+    id = "gene",
+    label = "Select Gene",
+    sharedData = plot_dat_sd,
+    group = ~gene_id,
+    multiple = FALSE
+  )
+} else {
+  plot_dat_sd <- plot_dat
+}
 ```
 
 <details>
