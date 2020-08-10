@@ -170,6 +170,30 @@ xaringan::infinite_moon_reader(
 )
 ----
 
+Alex' bacTRAP data
+
+[source,r]
+----
+mywd <- getwd()
+counts_data <- "/beegfs/scratch/bruening_scratch/pklemm/2019-02-alex-trap-nfcore/nfcore-rnaseq-pipeline/l10a/results/salmon/salmon_merged_gene_counts.csv" %>%
+  readr::read_csv() %>%
+  dplyr::rename(ensembl_gene_id = gene_id)
+
+xaringan::infinite_moon_reader(
+  moon = "inst/rmd/trapdiff/trapdiff.Rmd",
+  cast_from = file.path(mywd, "inst", "rmd", "trapdiff"),
+  params = list(
+    path_config_json = paste0(mywd, "/trapdiff-debug/config_alex.json"),
+    biotypes_filter = "protein_coding",
+    debug_cache = FALSE,
+    counts_min = 30,
+    save_rds = TRUE,
+    save_excel = TRUE,
+    counts = counts_data
+  )
+)
+----
+
 ====
 
 == History
