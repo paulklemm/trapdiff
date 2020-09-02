@@ -128,7 +128,7 @@ Anna's data
 [source,r]
 ----
 mywd <- getwd()
-counts_data <- "/beegfs/scratch/bruening_scratch/pklemm/2017-10-anna7-riboseq/nfcore-rnaseq-analysis/results/salmon/salmon_merged_gene_counts.csv" %>%
+counts_data <- "/beegfs/scratch/bruening_scratch/pklemm/2017-10-anna7-ribotrap/nfcore-rnaseq-analysis/results/salmon/salmon_merged_gene_counts.csv" %>%
   readr::read_csv() %>%
   dplyr::rename(ensembl_gene_id = gene_id)
 xaringan::infinite_moon_reader(
@@ -137,7 +137,7 @@ xaringan::infinite_moon_reader(
   params = list(
     path_config_json = paste0(mywd, "/trapdiff-debug/config_il6.json"),
     biotypes_filter = "protein_coding",
-    debug_cache = FALSE,
+    debug_cache = TRUE,
     counts_min = 30,
     save_rds = TRUE,
     save_excel = TRUE,
