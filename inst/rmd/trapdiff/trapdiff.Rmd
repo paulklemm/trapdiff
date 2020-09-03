@@ -696,6 +696,21 @@ if (rmd_params$save_rds) {
     object = de,
     file = glue::glue("{rmd_params$path_out}/de.rds")
   )
+  saveRDS(
+    object = col_data,
+    file = glue::glue("{rmd_params$path_out}/col_data.rds")
+  )
+  saveRDS(
+    object = counts %>%
+      tidyr::pivot_longer(cols = -ensembl_gene_id, names_to = "sample") %>%
+      # Attach variable name
+      rmyknife::attach_biomart(
+        attributes = "external_gene_name",
+        ensembl_version = rmd_params$ensembl_version,
+        verbose = FALSE
+      ),
+    file = glue::glue("{rmd_params$path_out}/counts.rds")
+  )
 }
 
 if (rmd_params$save_excel) {
@@ -705,5 +720,4 @@ if (rmd_params$save_excel) {
     SheetNames = "trapDiff Output"
   )
 }
-
 ```

@@ -8,4 +8,6 @@ trapdiff-debug
 trapdiff_cache
 inst/rmd/trapdiff/figures
 de.rds
+col_data.rds
+counts.rds
 de.xlsx

@@ -1,0 +1,328 @@
+---
+title: "Trapdiff"
+output: flexdashboard::flex_dashboard
+params:
+  path_out: "./"
+  path_de: "/beegfs/scratch/bruening_scratch/pklemm/rpackages/trapdiff/inst/rmd/trapdiff/de.rds"
+  path_col_data: "/beegfs/scratch/bruening_scratch/pklemm/rpackages/trapdiff/inst/rmd/trapdiff/col_data.rds"
+  path_counts: "/beegfs/scratch/bruening_scratch/pklemm/rpackages/trapdiff/inst/rmd/trapdiff/counts.rds"
+---
+
+```{r setup}
+library(magrittr)
+suppressWarnings(library(rmyknife))
+# Put params into separate object because sometimes params
+# get's inaccessible when developing with xaringan
+rmd_params <- params
+```
+
+## Inputs {.sidebar data-width=350 data-height=800}
+
+<details>
+<summary>Show configuration</summary>
+
+```{r show-run-config, paged.print = TRUE}
+# Print settings as table
+rmyknife::print_params(rmd_params)
+```
+
+```{r load-data}
+col_data <- readRDS(rmd_params$path_col_data)
+counts <- readRDS(rmd_params$path_counts)
+de <- readRDS(rmd_params$path_de) %>%
+  dplyr::mutate(gene_id = glue::glue("{ensembl_gene_id}_{external_gene_name}"))
+de_wide <- de %>%
+  tidyr::pivot_wider(
+    names_from = comparison,
+    values_from = c(padj, log2FoldChange)
+  )
+
+treatment_a <- col_data$treatment %>%
+  levels() %>%
+  .[1]
+treatment_b <- col_data$treatment %>%
+  levels() %>%
+  .[2]
+source_a <- col_data$source %>%
+  levels() %>%
+  .[1]
+source_b <- col_data$source %>%
+  levels() %>%
+  .[2]
+
+main_effect_a_comparison_name <- glue::glue("main_effect_in_source_a___{treatment_a}_vs_{treatment_b}_in_{source_a}")
+main_effect_b_comparison_name <- glue::glue("main_effect_in_source_b___{treatment_a}_vs_{treatment_b}_in_{source_b}")
+source_effect_a_comparison_name <- glue::glue("source_effect_in_main_a___{source_a}_vs_{source_b}_in_{treatment_a}")
+source_effect_b_comparison_name <- glue::glue("source_effect_in_main_b___{source_a}_vs_{source_b}_in_{treatment_b}")
+
+tibble::tibble(
+  condition = c("a", "b"),
+  treatment = c(treatment_a, treatment_b),
+  source = c(source_a, source_b)
+) %>%
+  knitr::kable()
+
+```
+
+</details>
+
+```{r}
+fc_scatterplot <-
+  function(
+           ggplot_dat,
+           colour_lab,
+           title,
+           x_lab = "fc_ip",
+           y_lab = "fc_input",
+           point_alpha = 0.3) {
+    ggplot_dat +
+      ggplot2::geom_point(
+        alpha = point_alpha
+      ) +
+      ggplot2::scale_x_continuous(limits = c(-5, 5)) +
+      ggplot2::scale_y_continuous(limits = c(-5, 5)) +
+      ggplot2::labs(
+        # x = x_lab,
+        # y = y_lab,
+        colour = colour_lab
+      ) +
+      # ggplot2::scale_size(trans = 'reverse') +
+      ggplot2::scale_color_distiller(palette = "RdBu", type = "div", direction = -1, limits = c(-5, 5)) +
+      ggplot2::theme_minimal() +
+      ggplot2::ggtitle(title)
+  }
+
+plot <- de_wide %>%
+  dplyr::filter(padj_interaction_effect <= 0.05) %>%
+  # Some genes names are encoded multiple times by different ensembl gene ids
+  # We therfore need to concatinate the two
+  dplyr::mutate(
+    gene_id = glue::glue("{ensembl_gene_id}_{external_gene_name}")
+  ) %>%
+  #  crosstalk::SharedData$new(~gene_id, group = "Choose a gene") %>%
+  ggplot2::ggplot(
+    mapping = ggplot2::aes_string(
+      x = glue::glue("log2FoldChange_{main_effect_a_comparison_name}"),
+      # x = "log2FoldChange_main_effect_in_source_a(ip_vs_input_in_il6)",
+      y = glue::glue("log2FoldChange_{main_effect_b_comparison_name}"),
+      # y = "log2FoldChange_main_effect_in_source_b(ip_vs_input_in_nacl)",
+      color = "log2FoldChange_interaction_effect",
+      label = "external_gene_name"
+    )
+  ) %>%
+  fc_scatterplot(
+    colour_lab = "FC interaction effect",
+    title = "FC main effect coloured by FC interaction effect",
+    point_alpha = 1
+  )
+
+shiny::selectInput(
+  "gene_id",
+  "Select gene",
+  choices = de_wide %>%
+    dplyr::select(gene_id) %>%
+    dplyr::distinct() %>%
+    dplyr::pull()
+)
+
+shiny::checkboxGroupInput(
+  "select_significant",
+  label = "Significant Genes",
+  choices = tibble::tibble(
+    !!(main_effect_a_comparison_name) := main_effect_a_comparison_name,
+    !!(main_effect_b_comparison_name) := main_effect_b_comparison_name,
+    !!(source_effect_a_comparison_name) := source_effect_a_comparison_name,
+    !!(source_effect_b_comparison_name) := source_effect_b_comparison_name,
+    interaction_effect = "interaction_effect"
+  ) %>% as.list()
+)
+
+apply_filter <- function(de_wide) {
+  if (main_effect_a_comparison_name %in% input$select_significant) {
+    de_wide <- de_wide %>%
+      dplyr::filter(get(glue::glue("padj_{main_effect_a_comparison_name}")) <= 0.05)
+  }
+  if (main_effect_b_comparison_name %in% input$select_significant) {
+    de_wide <- de_wide %>%
+      dplyr::filter(get(glue::glue("padj_{main_effect_b_comparison_name}")) <= 0.05)
+  }
+  if (source_effect_a_comparison_name %in% input$select_significant) {
+    de_wide <- de_wide %>%
+      dplyr::filter(get(glue::glue("padj_{source_effect_a_comparison_name}")) <= 0.05)
+  }
+  if (source_effect_b_comparison_name %in% input$select_significant) {
+    de_wide <- de_wide %>%
+      dplyr::filter(get(glue::glue("padj_{source_effect_b_comparison_name}")) <= 0.05)
+  }
+  if ("interaction_effect" %in% input$select_significant) {
+    de_wide <- de_wide %>%
+      dplyr::filter(get(glue::glue("padj_interaction_effect")) <= 0.05)
+  }
+  return(de_wide)
+}
+
+shiny::renderText({
+  print(input$select_significant)
+})
+```
+
+##
+
+### Datatable
+
+```{r datatable}
+
+DT::renderDataTable({
+  de_wide %>%
+    apply_filter() %>%
+    rmyknife::dt_datatable()
+})
+
+# de_wide %>%
+#   ggplot2::ggplot(
+#     mapping = ggplot2::aes_string(
+#       x = glue::glue("log2FoldChange_{main_effect_a_comparison_name}"),
+#       # x = "log2FoldChange_main_effect_in_source_a(ip_vs_input_in_il6)",
+#       y = glue::glue("log2FoldChange_{main_effect_b_comparison_name}"),
+#       # y = "log2FoldChange_main_effect_in_source_b(ip_vs_input_in_nacl)",
+#       color = "log2FoldChange_interaction_effect",
+#       label = "external_gene_name"
+#     )
+#   ) %>%
+#   fc_scatterplot(
+#     colour_lab = "FC interaction effect",
+#     title = "FC main effect coloured by FC interaction effect",
+#     point_alpha = 1
+#   ) %>%
+#   plotly::ggplotly(source = "gene_select")
+#   # plotly::highlight(
+#   #   on = "plotly_click",
+#   #   off = "plotly_doubleclick",
+#   #   dynamic = FALSE,
+#   #   color = "red",
+#   #   selectize = TRUE
+#   # )
+
+# shiny::observeEvent(plotly::event_data("plotly_click", source = "gene_select"), {
+
+#   event_data <- plotly::event_data("plotly_click", source = "gene_select")
+
+#   shiny::updateVarSelectInput(session, "gene_id", selected = event_data[[3]])
+
+# })
+
+```
+
+### Plot
+
+```{r plot}
+
+shiny::renderPlot({
+  de_wide %>%
+    apply_filter() %>%
+    ggplot2::ggplot(
+      mapping = ggplot2::aes_string(
+        x = glue::glue("log2FoldChange_{main_effect_a_comparison_name}"),
+        # x = "log2FoldChange_main_effect_in_source_a(ip_vs_input_in_il6)",
+        y = glue::glue("log2FoldChange_{main_effect_b_comparison_name}"),
+        # y = "log2FoldChange_main_effect_in_source_b(ip_vs_input_in_nacl)",
+        color = "log2FoldChange_interaction_effect",
+        label = "external_gene_name"
+      )
+    ) %>%
+    fc_scatterplot(
+      colour_lab = "FC interaction effect",
+      title = "FC main effect coloured by FC interaction effect",
+      point_alpha = 1
+    ) +
+    ggplot2::geom_point(
+      data = de_wide %>% dplyr::filter(gene_id == input$gene_id),
+      color = "red",
+      size = 10
+    )
+  # plotly::highlight(
+  #   on = "plotly_click",
+  #   off = "plotly_doubleclick",
+  #   dynamic = FALSE,
+  #   color = "red",
+  #   selectize = TRUE
+  # )
+})
+```
+
+##
+
+### Plot
+
+```{r plot-each-group}
+# Create a tidy long format of counts
+plot_dat <- dplyr::left_join(
+  x = col_data %>%
+    dplyr::mutate(group = glue::glue("{source}_{treatment}")) %>%
+    dplyr::select(id, group),
+  y = counts,
+  by = c("id" = "sample")
+) %>%
+  # Filtr all genes where we do not get a gene name
+  dplyr::filter(!is.na(external_gene_name)) %>%
+  # Create a unique gene_id variable for filtering
+  dplyr::mutate(
+    gene_id = paste0(ensembl_gene_id, "_", external_gene_name)
+  ) %>%
+  # Attach p-value from interaction effect
+  dplyr::left_join(
+    de %>%
+      tidyr::pivot_wider(names_from = comparison, values_from = c(padj, log2FoldChange)) %>%
+      dplyr::select(ensembl_gene_id, padj_interaction_effect),
+    by = "ensembl_gene_id"
+  )
+
+shiny::renderPlot({
+  plot_dat %>%
+    dplyr::filter(gene_id %in% input$gene_id) %>%
+    ggplot2::ggplot(
+      mapping = ggplot2::aes(
+        x = group,
+        y = value
+      )
+    ) +
+    ggplot2::geom_violin() +
+    ggplot2::geom_jitter(width = 0.1) +
+    ggplot2::ggtitle(input$gene_id)
+})
+```
+
+### Plot
+
+```{r}
+shiny::renderPlot({
+  
+  p1 <- de %>%
+    dplyr::filter(gene_id %in% input$gene_id) %>%
+    ggplot2::ggplot(
+      mapping = ggplot2::aes(
+        x = padj,
+        y = comparison
+      )
+    ) +
+#     ggplot2::geom_violin() +
+    ggplot2::geom_point() +
+    ggplot2::geom_vline(xintercept = 0.05, linetype = "dashed") +
+    ggplot2::ggtitle(input$gene_id)
+  
+  p2 <- de %>%
+    dplyr::filter(gene_id %in% input$gene_id) %>%
+    ggplot2::ggplot(
+      mapping = ggplot2::aes(
+        x = log2FoldChange,
+        y = comparison
+      )
+    ) +
+#     ggplot2::geom_violin() +
+    ggplot2::geom_point() +
+    ggplot2::geom_vline(xintercept = 0) +
+    ggplot2::ggtitle(input$gene_id)
+  
+  cowplot::plot_grid(p1, p2)
+})
+```
