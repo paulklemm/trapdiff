@@ -55,11 +55,7 @@ if (rmd_params$save_figures) {
 # Print settings as table
 print_params <- rmd_params
 print_params$counts <- "not displayed"
-tibble::tibble(
-  name = names(print_params),
-  setting = print_params[names(print_params)]
-) %>%
-  knitr::kable()
+rmyknife::print_params(print_params)
 ```
 
 ```{r import-settings}
