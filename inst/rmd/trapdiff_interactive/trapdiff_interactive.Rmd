@@ -1,6 +1,8 @@
 ---
 title: "Trapdiff"
-output: flexdashboard::flex_dashboard
+output:
+  flexdashboard::flex_dashboard:
+    orientation: rows
 params:
   path_out: "./"
   path_de: "/beegfs/scratch/bruening_scratch/pklemm/rpackages/trapdiff/inst/rmd/trapdiff/de.rds"
@@ -204,6 +206,8 @@ DT::renderDataTable({
 
 ```
 
+##
+
 ### Main effects colored by interaction term
 
 ```{r plot}
@@ -233,8 +237,6 @@ shiny::renderPlot({
     )
 })
 ```
-
-##
 
 ### Violin-plot of each experimental group
 
