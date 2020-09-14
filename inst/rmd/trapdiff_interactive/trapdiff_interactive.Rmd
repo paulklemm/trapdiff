@@ -14,6 +14,9 @@ suppressWarnings(library(rmyknife))
 # Put params into separate object because sometimes params
 # get's inaccessible when developing with xaringan
 rmd_params <- params
+# Dynamic variable for input select
+gene_select <- shiny::reactiveVal()
+ggplot2::theme_set(ggplot2::theme_light())
 ```
 
 ## Inputs {.sidebar data-width=300 data-height=800}
@@ -93,14 +96,30 @@ fc_scatterplot <-
       ggplot2::ggtitle(title)
   }
 
-shiny::selectInput(
-  "gene_id",
-  "Highlight gene",
-  choices = de_wide %>%
-    dplyr::select(gene_id) %>%
-    dplyr::distinct() %>%
-    dplyr::pull()
-)
+shiny::renderUI({
+  # Handle inputs from datatable (very hacky!)
+  selected_id <- get_first_selected_in_dt(input)
+  if (!is.null(selected_id)) {
+    print(selected_id)
+    selected_gene <- de_wide %>%
+      apply_filter() %>%
+      dplyr::slice(selected_id) %>%
+      .$gene_id
+    print(selected_gene)
+    gene_select(selected_gene)
+  }
+
+  shiny::selectInput(
+    "gene_id",
+    "Highlight gene",
+    choices = de_wide %>%
+      dplyr::select(gene_id) %>%
+      dplyr::distinct() %>%
+      dplyr::pull(),
+    # Get default selection from dynamic variable
+    selected = gene_select()
+  )
+}) 
 
 shiny::checkboxGroupInput(
   "select_significant",
@@ -146,9 +165,27 @@ apply_filter <- function(de_wide) {
   return(de_wide)
 }
 
-# shiny::renderText({
-#   print(input$select_significant)
-# })
+#' This is a super ugly hack for getting the clicked element of the data table
+#' Normally this will only work in a shiny app where we can name the output
+#' (see https://rstudio.github.io/DT/shiny.html). Here, we search the input
+#' array for anything containing the name `rows_selected` and then look if
+#' it contains not-null entries. If we find them, we return the index of the
+#' selected DT entry. This will definitely lead to some unwanted behavior
+#' but for now it's the only way I know for getting this to work without
+#' migrating away from rmarkdown to a standard shiny app.
+get_first_selected_in_dt <- function(input) {
+  test <- names(input) %>%
+    tibble::as_tibble() %>%
+    dplyr::filter(stringr::str_detect(value, "rows_selected")) %>%
+    dplyr::pull()
+  for (i in test) {
+    if (!is.null(input[[i]])) {
+      # print(input[[i]])
+      return(input[[i]][1])
+    }
+  }
+}
+
 ```
 
 ##
@@ -159,6 +196,8 @@ apply_filter <- function(de_wide) {
 
 DT::renderDataTable({
   de_wide %>%
+    rmyknife::attach_biomart(attributes = "description", ensembl_version = 100) %>%
+    dplyr::select(ensembl_gene_id, external_gene_name, description, dplyr::everything()) %>%
     apply_filter() %>%
     rmyknife::dt_datatable()
 })
@@ -175,9 +214,7 @@ shiny::renderPlot({
     ggplot2::ggplot(
       mapping = ggplot2::aes_string(
         x = glue::glue("log2FoldChange_{main_effect_a_comparison_name}"),
-        # x = "log2FoldChange_main_effect_in_source_a(ip_vs_input_in_il6)",
         y = glue::glue("log2FoldChange_{main_effect_b_comparison_name}"),
-        # y = "log2FoldChange_main_effect_in_source_b(ip_vs_input_in_nacl)",
         color = "log2FoldChange_interaction_effect",
         label = "external_gene_name"
       )
@@ -194,13 +231,6 @@ shiny::renderPlot({
       color = "red",
       size = 10
     )
-  # plotly::highlight(
-  #   on = "plotly_click",
-  #   off = "plotly_doubleclick",
-  #   dynamic = FALSE,
-  #   color = "red",
-  #   selectize = TRUE
-  # )
 })
 ```
 
