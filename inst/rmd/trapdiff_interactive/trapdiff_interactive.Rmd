@@ -16,7 +16,7 @@ suppressWarnings(library(rmyknife))
 rmd_params <- params
 ```
 
-## Inputs {.sidebar data-width=350 data-height=800}
+## Inputs {.sidebar data-width=300 data-height=800}
 
 <details>
 <summary>Show configuration</summary>
@@ -50,10 +50,10 @@ source_b <- col_data$source %>%
   levels() %>%
   .[2]
 
-main_effect_a_comparison_name <- glue::glue("main_effect_in_source_a___{treatment_a}_vs_{treatment_b}_in_{source_a}")
-main_effect_b_comparison_name <- glue::glue("main_effect_in_source_b___{treatment_a}_vs_{treatment_b}_in_{source_b}")
-source_effect_a_comparison_name <- glue::glue("source_effect_in_main_a___{source_a}_vs_{source_b}_in_{treatment_a}")
-source_effect_b_comparison_name <- glue::glue("source_effect_in_main_b___{source_a}_vs_{source_b}_in_{treatment_b}")
+main_effect_a_comparison_name <- glue::glue("main_in_source_a___{treatment_a}_vs_{treatment_b}_in_{source_a}")
+main_effect_b_comparison_name <- glue::glue("main_in_source_b___{treatment_a}_vs_{treatment_b}_in_{source_b}")
+source_effect_a_comparison_name <- glue::glue("source_in_main_a___{source_a}_vs_{source_b}_in_{treatment_a}")
+source_effect_b_comparison_name <- glue::glue("source_in_main_b___{source_a}_vs_{source_b}_in_{treatment_b}")
 
 tibble::tibble(
   condition = c("a", "b"),
@@ -61,7 +61,6 @@ tibble::tibble(
   source = c(source_a, source_b)
 ) %>%
   knitr::kable()
-
 ```
 
 </details>
@@ -74,51 +73,29 @@ fc_scatterplot <-
            title,
            x_lab = "fc_ip",
            y_lab = "fc_input",
-           point_alpha = 0.3) {
+           point_alpha = 0.3,
+           min_range = -5,
+           max_range = 5) {
     ggplot_dat +
       ggplot2::geom_point(
         alpha = point_alpha
       ) +
-      ggplot2::scale_x_continuous(limits = c(-5, 5)) +
-      ggplot2::scale_y_continuous(limits = c(-5, 5)) +
+      ggplot2::scale_x_continuous(limits = c(min_range, max_range)) +
+      ggplot2::scale_y_continuous(limits = c(min_range, max_range)) +
       ggplot2::labs(
         # x = x_lab,
         # y = y_lab,
         colour = colour_lab
       ) +
       # ggplot2::scale_size(trans = 'reverse') +
-      ggplot2::scale_color_distiller(palette = "RdBu", type = "div", direction = -1, limits = c(-5, 5)) +
+      ggplot2::scale_color_distiller(palette = "RdBu", type = "div", direction = -1, limits = c(min_range, max_range)) +
       ggplot2::theme_minimal() +
       ggplot2::ggtitle(title)
   }
 
-plot <- de_wide %>%
-  dplyr::filter(padj_interaction_effect <= 0.05) %>%
-  # Some genes names are encoded multiple times by different ensembl gene ids
-  # We therfore need to concatinate the two
-  dplyr::mutate(
-    gene_id = glue::glue("{ensembl_gene_id}_{external_gene_name}")
-  ) %>%
-  #  crosstalk::SharedData$new(~gene_id, group = "Choose a gene") %>%
-  ggplot2::ggplot(
-    mapping = ggplot2::aes_string(
-      x = glue::glue("log2FoldChange_{main_effect_a_comparison_name}"),
-      # x = "log2FoldChange_main_effect_in_source_a(ip_vs_input_in_il6)",
-      y = glue::glue("log2FoldChange_{main_effect_b_comparison_name}"),
-      # y = "log2FoldChange_main_effect_in_source_b(ip_vs_input_in_nacl)",
-      color = "log2FoldChange_interaction_effect",
-      label = "external_gene_name"
-    )
-  ) %>%
-  fc_scatterplot(
-    colour_lab = "FC interaction effect",
-    title = "FC main effect coloured by FC interaction effect",
-    point_alpha = 1
-  )
-
 shiny::selectInput(
   "gene_id",
-  "Select gene",
+  "Highlight gene",
   choices = de_wide %>%
     dplyr::select(gene_id) %>%
     dplyr::distinct() %>%
@@ -127,7 +104,7 @@ shiny::selectInput(
 
 shiny::checkboxGroupInput(
   "select_significant",
-  label = "Significant Genes",
+  label = "Filter significant genes",
   choices = tibble::tibble(
     !!(main_effect_a_comparison_name) := main_effect_a_comparison_name,
     !!(main_effect_b_comparison_name) := main_effect_b_comparison_name,
@@ -135,6 +112,14 @@ shiny::checkboxGroupInput(
     !!(source_effect_b_comparison_name) := source_effect_b_comparison_name,
     interaction_effect = "interaction_effect"
   ) %>% as.list()
+)
+
+shiny::sliderInput(
+  inputId = "scatterplot_range",
+  label = "Scatterplot range:",
+  min = 0,
+  max = 50,
+  value = 5
 )
 
 apply_filter <- function(de_wide) {
@@ -161,14 +146,14 @@ apply_filter <- function(de_wide) {
   return(de_wide)
 }
 
-shiny::renderText({
-  print(input$select_significant)
-})
+# shiny::renderText({
+#   print(input$select_significant)
+# })
 ```
 
 ##
 
-### Datatable
+### Table
 
 ```{r datatable}
 
@@ -178,42 +163,9 @@ DT::renderDataTable({
     rmyknife::dt_datatable()
 })
 
-# de_wide %>%
-#   ggplot2::ggplot(
-#     mapping = ggplot2::aes_string(
-#       x = glue::glue("log2FoldChange_{main_effect_a_comparison_name}"),
-#       # x = "log2FoldChange_main_effect_in_source_a(ip_vs_input_in_il6)",
-#       y = glue::glue("log2FoldChange_{main_effect_b_comparison_name}"),
-#       # y = "log2FoldChange_main_effect_in_source_b(ip_vs_input_in_nacl)",
-#       color = "log2FoldChange_interaction_effect",
-#       label = "external_gene_name"
-#     )
-#   ) %>%
-#   fc_scatterplot(
-#     colour_lab = "FC interaction effect",
-#     title = "FC main effect coloured by FC interaction effect",
-#     point_alpha = 1
-#   ) %>%
-#   plotly::ggplotly(source = "gene_select")
-#   # plotly::highlight(
-#   #   on = "plotly_click",
-#   #   off = "plotly_doubleclick",
-#   #   dynamic = FALSE,
-#   #   color = "red",
-#   #   selectize = TRUE
-#   # )
-
-# shiny::observeEvent(plotly::event_data("plotly_click", source = "gene_select"), {
-
-#   event_data <- plotly::event_data("plotly_click", source = "gene_select")
-
-#   shiny::updateVarSelectInput(session, "gene_id", selected = event_data[[3]])
-
-# })
-
 ```
 
-### Plot
+### Main effects colored by interaction term
 
 ```{r plot}
 
@@ -233,7 +185,9 @@ shiny::renderPlot({
     fc_scatterplot(
       colour_lab = "FC interaction effect",
       title = "FC main effect coloured by FC interaction effect",
-      point_alpha = 1
+      point_alpha = 1,
+      min_range = -input$scatterplot_range,
+      max_range = input$scatterplot_range
     ) +
     ggplot2::geom_point(
       data = de_wide %>% dplyr::filter(gene_id == input$gene_id),
@@ -252,7 +206,7 @@ shiny::renderPlot({
 
 ##
 
-### Plot
+### Violin-plot of each experimental group
 
 ```{r plot-each-group}
 # Create a tidy long format of counts
@@ -272,7 +226,10 @@ plot_dat <- dplyr::left_join(
   # Attach p-value from interaction effect
   dplyr::left_join(
     de %>%
-      tidyr::pivot_wider(names_from = comparison, values_from = c(padj, log2FoldChange)) %>%
+      tidyr::pivot_wider(
+        names_from = comparison,
+        values_from = c(padj, log2FoldChange)
+      ) %>%
       dplyr::select(ensembl_gene_id, padj_interaction_effect),
     by = "ensembl_gene_id"
   )
@@ -292,11 +249,10 @@ shiny::renderPlot({
 })
 ```
 
-### Plot
+### Fold change and p-value for each comparison
 
 ```{r}
 shiny::renderPlot({
-  
   p1 <- de %>%
     dplyr::filter(gene_id %in% input$gene_id) %>%
     ggplot2::ggplot(
@@ -307,8 +263,7 @@ shiny::renderPlot({
     ) +
 #     ggplot2::geom_violin() +
     ggplot2::geom_point() +
-    ggplot2::geom_vline(xintercept = 0.05, linetype = "dashed") +
-    ggplot2::ggtitle(input$gene_id)
+    ggplot2::geom_vline(xintercept = 0.05, linetype = "dashed")
   
   p2 <- de %>%
     dplyr::filter(gene_id %in% input$gene_id) %>%
@@ -318,11 +273,20 @@ shiny::renderPlot({
         y = comparison
       )
     ) +
-#     ggplot2::geom_violin() +
     ggplot2::geom_point() +
-    ggplot2::geom_vline(xintercept = 0) +
-    ggplot2::ggtitle(input$gene_id)
-  
-  cowplot::plot_grid(p1, p2)
+    ggplot2::geom_vline(xintercept = 0)
+    # Create title
+    title <- cowplot::ggdraw() +
+      cowplot::draw_label(
+        input$gene_id,
+        x = 0,
+        hjust = 0
+      )
+    cowplot::plot_grid(
+      title, p1, p2,
+      ncol = 1,
+      # rel_heights values control vertical title margins
+      rel_heights = c(0.1, 1, 1)
+    )
 })
 ```
