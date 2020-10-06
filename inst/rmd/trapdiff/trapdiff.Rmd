@@ -13,7 +13,7 @@ params:
   save_figures: TRUE
   counts: ""
   counts_min: 0
-  ensembl_version: 99
+  ensembl_version: 100
   biotypes_filter: !r NA
   debug_cache: FALSE
   save_excel: FALSE
