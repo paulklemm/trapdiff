@@ -10,12 +10,11 @@ output:
 params:
   path_out: "./"
   path_config_json: ""
-  save_figures: TRUE
   counts: ""
   counts_min: 0
   ensembl_version: 100
   biotypes_filter: !r NA
-  debug_cache: FALSE
+  save_figures: TRUE
   save_excel: FALSE
   save_rds: FALSE
 ---
@@ -160,7 +159,7 @@ counts <- counts %>%
 
 ```
 
-```{r remove-min-counts, cache = rmd_params$debug_cache}
+```{r remove-min-counts}
 
 # Get mean counts for each experimental group
 genes_satisfying_min_counts <- counts %>%
@@ -195,7 +194,7 @@ counts <- counts %>%
 
 We keep `r genes_satisfying_min_counts %>% length()` genes where the mean of gene counts in one of the groups (`r col_data %>% dplyr::mutate(experimental_group = glue::glue("{source}_{treatment}")) %>% dplyr::select(experimental_group) %>% dplyr::distinct() %>% dplyr::pull()`) a count of `r rmd_params$counts_min` or more.
 
-```{r remove-biotypes, cache = rmd_params$debug_cache}
+```{r remove-biotypes}
 
 # Default report message.
 remove_biotypes_report <- "We keep genes of all biotypes."
@@ -243,7 +242,7 @@ The design formula is `design = ~ source + treatment + source:treatment`.
 
 The main effect is `treatment`, adjusting for `source` and the interaction between `source` and `treatment`.
 
-```{r get-levels, cache = rmd_params$debug_cache}
+```{r get-levels}
 treatment_a <- col_data$treatment %>%
   levels() %>%
   .[1]
@@ -268,7 +267,7 @@ tibble::tibble(
 <details>
 <summary>Show DESeq2 messages</summary>
 
-```{r run-deseq2, cache = rmd_params$debug_cache}
+```{r run-deseq2}
 
 deseq_data <- DESeq2::DESeqDataSetFromMatrix(
   countData = counts %>% as.data.frame(),
@@ -685,7 +684,7 @@ Let's check how big the overlap between source and interaction is.
 
 </details>
 
-```{r save_result, cache = rmd_params$debug_cache}
+```{r save_result}
 
 if (rmd_params$save_rds) {
   saveRDS(
