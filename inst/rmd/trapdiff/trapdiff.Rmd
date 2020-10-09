@@ -277,6 +277,49 @@ deseq_data <- DESeq2::DESeqDataSetFromMatrix(
 )
 
 deseq_result <- DESeq2::DESeq(deseq_data)
+
+# Create DESeq2 data for source groups separately to be able to
+# plot the PCA for these groups individually
+deseq_results_source <-
+  col_data$source %>%
+  levels() %>%
+  purrr::map(
+    function(source_level) {
+      # source_level <- "ip"
+      source_level_samples <-
+        col_data %>%
+        dplyr::filter(source == source_level) %>%
+        .$id
+      # Filter counts file only for samples of current level
+      source_level_counts <-
+        counts %>%
+        dplyr::select(ensembl_gene_id, source_level_samples)
+      # Create col_data only for current source level
+      source_level_col_data <-
+        dplyr::left_join(
+          x = tibble::tibble(
+            id = source_level_counts %>% dplyr::select(-ensembl_gene_id) %>% colnames()
+          ),
+          y = col_data,
+          by = "id"
+        )
+      # Create DESeq2 object
+      source_level_deseq_result <- DESeq2::DESeqDataSetFromMatrix(
+        countData = source_level_counts %>% as.data.frame(),
+        colData = source_level_col_data,
+        design = ~ treatment,
+        tidy = TRUE
+      ) %>%
+        DESeq2::DESeq()
+      source_level_deseq_result %>%
+        return()
+    }
+  )
+# Set the names for the list of DESeq2 results
+names(deseq_results_source) <-
+  col_data$source %>%
+  levels()
+
 ```
 
 </details>
@@ -321,14 +364,20 @@ pca_data <- DESeq2::plotPCA(
 pca_plot(pca_data, "All samples")
 
 # PCA for each source level
-pca_data$source %>%
-  levels() %>%
-  purrr::walk(function(source_level) {
-    pca_data %>%
-      dplyr::filter(source == source_level) %>%
-      pca_plot(paste0(source_level, " samples")) %>%
+deseq_results_source %>%
+  names() %>%
+  purrr::walk(function(source_name) {
+    # source_name <- "ip"
+    deseq_result_source <- deseq_results_source[source_name][[1]]
+    DESeq2::plotPCA(
+      DESeq2::vst(deseq_result_source, blind = FALSE),
+      intgroup = "treatment",
+      returnData = TRUE
+    ) %>%
+      pca_plot(glue::glue("Source level {source_name}")) %>%
       print()
   })
+
 ```
 
 ### Differentially Expressed (DE) Genes
