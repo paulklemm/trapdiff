@@ -57,11 +57,10 @@ ui <- fluidPage(
     ),
 
     mainPanel(
-      tableOutput("show_path"),
-      tableOutput("show_de_wide"),
-      textOutput("debug_text"),
       DT::DTOutput("table"),
-      plotOutput("main_scatterplot")
+      plotOutput("main_scatterplot"),
+      plotOutput("plot_each_group"),
+      plotOutput("stats_plot")
     )
   )
 )
@@ -190,17 +189,6 @@ server <- function(input, output, session) {
     )
   })
 
-  # Debug output
-  output$show_path <- renderTable({
-    head(de())
-  })
-  output$show_de_wide <- renderTable({
-    head(col_data())
-  })
-  output$debug_text <- renderText({
-    print(glue::glue("main_effect_a_comparison_name: {main_effect_a_comparison_name()}"))
-  })
-
   output$settings <- renderTable({
     tibble::tibble(
       condition = c("a", "b"),
@@ -252,6 +240,82 @@ server <- function(input, output, session) {
         data = de_wide() %>% dplyr::filter(gene_id == input$gene_id),
         color = "red",
         size = 10
+      )
+  })
+
+  output$plot_each_group <- shiny::renderPlot({
+    # Create a tidy long format of counts
+    plot_dat <- dplyr::left_join(
+      x = col_data() %>%
+        dplyr::mutate(group = glue::glue("{source}_{treatment}")) %>%
+        dplyr::select(id, group),
+      y = counts(),
+      by = c("id" = "sample")
+    ) %>%
+      # Filtr all genes where we do not get a gene name
+      dplyr::filter(!is.na(external_gene_name)) %>%
+      # Create a unique gene_id variable for filtering
+      dplyr::mutate(
+        gene_id = paste0(ensembl_gene_id, "_", external_gene_name)
+      ) %>%
+      # Attach p-value from interaction effect
+      dplyr::left_join(
+        de() %>%
+          tidyr::pivot_wider(
+            names_from = comparison,
+            values_from = c(padj, log2FoldChange)
+          ) %>%
+          dplyr::select(ensembl_gene_id, padj_interaction_effect),
+        by = "ensembl_gene_id"
+      )
+
+    plot_dat %>%
+      dplyr::filter(gene_id %in% input$gene_id) %>%
+      ggplot2::ggplot(
+        mapping = ggplot2::aes(
+          x = group,
+          y = value
+        )
+      ) +
+      ggplot2::geom_violin() +
+      ggplot2::geom_jitter(width = 0.1) +
+      ggplot2::ggtitle(input$gene_id)
+  })
+
+  output$stats_plot <- shiny::renderPlot({
+    p1 <- de() %>%
+      dplyr::filter(gene_id %in% input$gene_id) %>%
+      ggplot2::ggplot(
+        mapping = ggplot2::aes(
+          x = padj,
+          y = comparison
+        )
+      ) +
+      ggplot2::geom_point() +
+      ggplot2::geom_vline(xintercept = 0.05, linetype = "dashed")
+    
+    p2 <- de() %>%
+      dplyr::filter(gene_id %in% input$gene_id) %>%
+      ggplot2::ggplot(
+        mapping = ggplot2::aes(
+          x = log2FoldChange,
+          y = comparison
+        )
+      ) +
+      ggplot2::geom_point() +
+      ggplot2::geom_vline(xintercept = 0)
+      # Create title
+      title <- cowplot::ggdraw() +
+        cowplot::draw_label(
+          input$gene_id,
+          x = 0,
+          hjust = 0
+        )
+      cowplot::plot_grid(
+        title, p1, p2,
+        ncol = 1,
+        # rel_heights values control vertical title margins
+        rel_heights = c(0.1, 1, 1)
       )
   })
 }
