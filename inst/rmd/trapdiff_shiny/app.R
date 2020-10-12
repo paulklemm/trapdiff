@@ -1,4 +1,5 @@
 library(shiny)
+library(shinydashboard)
 
 fc_scatterplot <- function(
   ggplot_dat,
@@ -26,44 +27,73 @@ fc_scatterplot <- function(
     ggplot2::ggtitle(title)
 }
 
-ui <- fluidPage(
-  titlePanel("censusVis"),
-  sidebarLayout(
-    sidebarPanel(
-      helpText("Trapdiff Help Text"),
-      textInput(
-        inputId = "trappath",
-        label = "Trapdiff output path",
-        value = "/beegfs/scratch/bruening_scratch/pklemm/2020-05-yiyi-bactrap/release/trapdiff"
+ui <- dashboardPage(
+    skin = "black",
+     # options = list(sidebarExpandOnHover = TRUE),
+     header = dashboardHeader(title = "⚖️ TrapDiff", disable = FALSE),
+     sidebar = dashboardSidebar(
+        # Have an overflowing sidebar
+        tags$style(
+          "#sidebarItemExpanded {
+                overflow: auto;
+                max-height: 100vh;
+            }"
+        ),
+       # minified = TRUE,
+       # collapsed = FALSE,
+       textInput(
+          inputId = "trappath",
+          label = "Trapdiff output path",
+          value = "/beegfs/scratch/bruening_scratch/pklemm/2020-05-yiyi-bactrap/release/trapdiff"
+        ),
+        tableOutput("settings"),
+        selectInput(
+          "gene_id",
+          "Highlight gene",
+          choices = c()
+        ),
+        shiny::checkboxGroupInput(
+          "select_significant",
+          label = "Filter significant genes",
+          choices = c()
+        ),
+        shiny::sliderInput(
+          inputId = "scatterplot_range",
+          label = "Scatterplot range:",
+          min = 0,
+          max = 50,
+          value = 5
+        )
+     ),
+     body = dashboardBody(
+       fluidRow(
+        box(
+          width = 4,
+          collapsible = TRUE,
+          plotOutput("plot_each_group")
+        ),
+        box(
+          width = 4,
+          collapsible = TRUE,
+          plotOutput("stats_plot")
+        ),
+        box(
+          width = 4,
+          collapsible = TRUE,
+          plotOutput("main_scatterplot")
+        ),
       ),
-      tableOutput("settings"),
-      selectInput(
-        "gene_id",
-        "Highlight gene",
-        choices = c()
-      ),
-      shiny::sliderInput(
-        inputId = "scatterplot_range",
-        label = "Scatterplot range:",
-        min = 0,
-        max = 50,
-        value = 5
-      ),
-      shiny::checkboxGroupInput(
-        "select_significant",
-        label = "Filter significant genes",
-        choices = c()
+      fluidRow(
+        box(
+          width = 12,
+          collapsible = TRUE,
+          DT::DTOutput("table")
+        )
       )
-    ),
-
-    mainPanel(
-      DT::DTOutput("table"),
-      plotOutput("main_scatterplot"),
-      plotOutput("plot_each_group"),
-      plotOutput("stats_plot")
-    )
-  )
-)
+     ),
+     # controlbar = dashboardControlbar(),
+     title = "TrapDiff"
+   )
 
 server <- function(input, output, session) {
   apply_filter <- function(de_wide) {
@@ -204,15 +234,19 @@ server <- function(input, output, session) {
       dplyr::select(ensembl_gene_id, external_gene_name, dplyr::everything()) %>%
       apply_filter() %>%
       DT::datatable(
-        extensions = c("Scroller", "Buttons"),
+        # extensions = c("Scroller", "Buttons"),
+        extensions = c("Scroller"),
         selection = "single",
         filter = list(position = "top"),
         options = list(
-          dom = "Bfrtip",
-          buttons = c("copy", "csv", "excel", "pdf", "print"),
+          # Remove search bar but leave filter
+          # https://stackoverflow.com/a/35627085
+          sDom  = '<"top">lrt<"bottom">ip',
+          # dom = "Bfrtip",
+          # buttons = c("copy", "csv", "excel", "pdf", "print"),
           scrollX = TRUE,
           # Makes the table more responsive when it's really big
-          scrollY = 300,
+          scrollY = 250,
           scroller = TRUE
         )
       )
