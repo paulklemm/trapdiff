@@ -96,6 +96,13 @@ ui <- dashboardPage(
    )
 
 server <- function(input, output, session) {
+  # Look for URL search changes
+  observe({
+    query <- parseQueryString(session$clientData$url_search)
+    if (!is.null(query[['trappath']])) {
+      updateTextInput(session, "trappath", value = query[['trappath']])
+    }
+  })
   apply_filter <- function(de_wide) {
     if (main_effect_a_comparison_name() %in% input$select_significant) {
       de_wide <- de_wide %>%
