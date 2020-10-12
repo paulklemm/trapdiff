@@ -71,7 +71,8 @@ ui <- fluidPage(
       tableOutput("show_path"),
       tableOutput("show_de_wide"),
       textOutput("debug_text"),
-      DT::DTOutput("table")
+      DT::DTOutput("table"),
+      plotOutput("main_scatterplot")
     )
   )
 )
@@ -198,10 +199,32 @@ server <- function(input, output, session) {
           scroller = TRUE
         )
       )
-})
+  })
 
-
-  
+  output$main_scatterplot <- renderPlot({
+    de_wide() %>%
+      # apply_filter() %>%
+      ggplot2::ggplot(
+        mapping = ggplot2::aes_string(
+          x = glue::glue("log2FoldChange_{main_effect_a_comparison_name()}"),
+          y = glue::glue("log2FoldChange_{main_effect_b_comparison_name()}"),
+          color = "log2FoldChange_interaction_effect",
+          label = "external_gene_name"
+        )
+      ) %>%
+      fc_scatterplot(
+        colour_lab = "FC interaction effect",
+        title = "FC main effect coloured by FC interaction effect",
+        point_alpha = 1,
+        # min_range = -input$scatterplot_range,
+        # max_range = input$scatterplot_range
+      ) +
+      ggplot2::geom_point(
+        data = de_wide() %>% dplyr::filter(gene_id == input$gene_id),
+        color = "red",
+        size = 10
+      )
+  })
 }
 
 shinyApp(ui, server)
