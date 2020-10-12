@@ -26,30 +26,6 @@ fc_scatterplot <- function(
     ggplot2::ggtitle(title)
 }
 
-apply_filter <- function(de_wide) {
-  if (main_effect_a_comparison_name() %in% input$select_significant) {
-    de_wide <- de_wide %>%
-      dplyr::filter(get(glue::glue("padj_{main_effect_a_comparison_name()}")) <= 0.05)
-  }
-  if (main_effect_b_comparison_name() %in% input$select_significant) {
-    de_wide <- de_wide %>%
-      dplyr::filter(get(glue::glue("padj_{main_effect_b_comparison_name()}")) <= 0.05)
-  }
-  if (source_effect_a_comparison_name() %in% input$select_significant) {
-    de_wide <- de_wide %>%
-      dplyr::filter(get(glue::glue("padj_{source_effect_a_comparison_name()}")) <= 0.05)
-  }
-  if (source_effect_b_comparison_name() %in% input$select_significant) {
-    de_wide <- de_wide %>%
-      dplyr::filter(get(glue::glue("padj_{source_effect_b_comparison_name()}")) <= 0.05)
-  }
-  if ("interaction_effect" %in% input$select_significant) {
-    de_wide <- de_wide %>%
-      dplyr::filter(get(glue::glue("padj_interaction_effect")) <= 0.05)
-  }
-  return(de_wide)
-}
-
 ui <- fluidPage(
   titlePanel("censusVis"),
   sidebarLayout(
@@ -65,8 +41,21 @@ ui <- fluidPage(
         "gene_id",
         "Highlight gene",
         choices = c()
+      ),
+      shiny::sliderInput(
+        inputId = "scatterplot_range",
+        label = "Scatterplot range:",
+        min = 0,
+        max = 50,
+        value = 5
+      ),
+      shiny::checkboxGroupInput(
+        "select_significant",
+        label = "Filter significant genes",
+        choices = c()
       )
     ),
+
     mainPanel(
       tableOutput("show_path"),
       tableOutput("show_de_wide"),
@@ -78,6 +67,30 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
+  apply_filter <- function(de_wide) {
+    if (main_effect_a_comparison_name() %in% input$select_significant) {
+      de_wide <- de_wide %>%
+        dplyr::filter(get(glue::glue("padj_{main_effect_a_comparison_name()}")) <= 0.05)
+    }
+    if (main_effect_b_comparison_name() %in% input$select_significant) {
+      de_wide <- de_wide %>%
+        dplyr::filter(get(glue::glue("padj_{main_effect_b_comparison_name()}")) <= 0.05)
+    }
+    if (source_effect_a_comparison_name() %in% input$select_significant) {
+      de_wide <- de_wide %>%
+        dplyr::filter(get(glue::glue("padj_{source_effect_a_comparison_name()}")) <= 0.05)
+    }
+    if (source_effect_b_comparison_name() %in% input$select_significant) {
+      de_wide <- de_wide %>%
+        dplyr::filter(get(glue::glue("padj_{source_effect_b_comparison_name()}")) <= 0.05)
+    }
+    if ("interaction_effect" %in% input$select_significant) {
+      de_wide <- de_wide %>%
+        dplyr::filter(get(glue::glue("padj_interaction_effect")) <= 0.05)
+    }
+    return(de_wide)
+  }
+
   # Read data
   de <- shiny::reactive({
     glue::glue("{input$trappath}/de.rds") %>%
@@ -127,7 +140,7 @@ server <- function(input, output, session) {
     if (!is.null(selected_id)) {
       print(selected_id)
       selected_gene <- de_wide() %>%
-        # apply_filter() %>%
+        apply_filter() %>%
         dplyr::slice(selected_id) %>%
         .$gene_id
       print(selected_gene)
@@ -135,17 +148,33 @@ server <- function(input, output, session) {
     }
   })
 
+  # Update filter box
+  observe({
+    updateCheckboxGroupInput(
+      session,
+      "select_significant",
+      choices = 
+        tibble::tibble(
+          !!(main_effect_a_comparison_name()) := main_effect_a_comparison_name(),
+          !!(main_effect_b_comparison_name()) := main_effect_b_comparison_name(),
+          !!(source_effect_a_comparison_name()) := source_effect_a_comparison_name(),
+          !!(source_effect_b_comparison_name()) := source_effect_b_comparison_name(),
+          interaction_effect = "interaction_effect"
+        ) %>% as.list()
+    )
+  })
+
   # Update Gene select input
   observe({
     selected_gene <-
       de_wide() %>%
-      # apply_filter() %>%
+      apply_filter() %>%
       .$gene_id %>%
       .[1]
     if (!is.null(input$table_rows_selected)) {
       # browser()
       selected_gene <- de_wide() %>%
-        # apply_filter() %>%
+        apply_filter() %>%
         dplyr::slice(input$table_rows_selected) %>%
         .$gene_id
     }
@@ -185,7 +214,7 @@ server <- function(input, output, session) {
       # rmyknife::attach_biomart(attributes = "description", ensembl_version = 100) %>%
       # dplyr::select(ensembl_gene_id, external_gene_name, description, dplyr::everything()) %>%
       dplyr::select(ensembl_gene_id, external_gene_name, dplyr::everything()) %>%
-      # apply_filter() %>%
+      apply_filter() %>%
       DT::datatable(
         extensions = c("Scroller", "Buttons"),
         selection = "single",
@@ -203,7 +232,7 @@ server <- function(input, output, session) {
 
   output$main_scatterplot <- renderPlot({
     de_wide() %>%
-      # apply_filter() %>%
+      apply_filter() %>%
       ggplot2::ggplot(
         mapping = ggplot2::aes_string(
           x = glue::glue("log2FoldChange_{main_effect_a_comparison_name()}"),
@@ -216,8 +245,8 @@ server <- function(input, output, session) {
         colour_lab = "FC interaction effect",
         title = "FC main effect coloured by FC interaction effect",
         point_alpha = 1,
-        # min_range = -input$scatterplot_range,
-        # max_range = input$scatterplot_range
+        min_range = -input$scatterplot_range,
+        max_range = input$scatterplot_range
       ) +
       ggplot2::geom_point(
         data = de_wide() %>% dplyr::filter(gene_id == input$gene_id),
