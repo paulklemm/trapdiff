@@ -41,22 +41,27 @@ ui <- dashboardPage(
         ),
        # minified = TRUE,
        # collapsed = FALSE,
+       helpText("Path to Trapdiff data. Typically you do not need to change this."),
        textInput(
           inputId = "trappath",
           label = "Trapdiff output path",
           value = ""
         ),
+        helpText("Table of the settings of the trapdiff run to be sure we have the right labels assigned."),
         tableOutput("settings"),
+        helpText("Select a gene to highlight in the plots here. Alternatively you can select one in the table."),
         selectInput(
           "gene_id",
           "Highlight gene",
           choices = c()
         ),
+        helpText("Filter genes that are significant in the following conditions. Typically you want to look at the genes significant with the 'interaction term'"),
         shiny::checkboxGroupInput(
           "select_significant",
           label = "Filter significant genes",
           choices = c()
         ),
+        helpText("This affects the filter range of the scatter plot."),
         shiny::sliderInput(
           inputId = "scatterplot_range",
           label = "Scatterplot range:",
