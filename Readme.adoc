@@ -91,6 +91,11 @@ It needs to contain a column `ensembl_gene_id` and a column for each sample.
 
 *The counts are rounded to integers to comply with DESeq2 standards during the analysis!*
 
+== Shiny
+
+TrapDiff also provides a shiny app that allows for interactively analyzing the trapdiff output.
+Find the app with `inst/rmd/trapdiff_shiny/app.R`. You can send the path via the URL, e.g. `http://127.0.0.1:6252/?trappath=/beegfs/scratch/bruening_scratch/pklemm/2020-05-yiyi-bactrap/release/trapdiff`
+
 == Development
 
 These options are only important for developing the package.
@@ -190,14 +195,3 @@ xaringan::infinite_moon_reader(
   )
 )
 ----
-
-====
-
-== History
-
-.History
-[%collapsible]
-====
-* _2020-06-26_
-** Started project
-====
