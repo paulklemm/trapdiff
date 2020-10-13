@@ -44,7 +44,7 @@ ui <- dashboardPage(
        textInput(
           inputId = "trappath",
           label = "Trapdiff output path",
-          value = "/beegfs/scratch/bruening_scratch/pklemm/2020-05-yiyi-bactrap/release/trapdiff"
+          value = ""
         ),
         tableOutput("settings"),
         selectInput(
@@ -146,26 +146,43 @@ server <- function(input, output, session) {
         values_from = c(padj, log2FoldChange)
       )
   })
-  treatment_a <- shiny::reactive({
-    col_data()$treatment %>%
-      levels() %>%
-      .[1]
+    treatment_a <- shiny::reactive({
+    dat <- tryCatch(
+      col_data()$treatment %>%
+        levels() %>%
+        .[1],
+      error = function(cond){ "not initialized" }
+    )
+    return(dat)
   })
   treatment_b <- shiny::reactive({
-    col_data()$treatment %>%
-      levels() %>%
-      .[2]
+    dat <- tryCatch(
+      col_data()$treatment %>%
+        levels() %>%
+        .[2],
+      error = function(cond){ "not initialized" }
+      )
+    return(dat)
   })
   source_a <- shiny::reactive({
-    col_data()$source %>%
-      levels() %>%
-      .[1]
+    dat <- tryCatch(
+      col_data()$source %>%
+        levels() %>%
+        .[1],
+      error = function(cond){ "not initialized" }
+      )
+    return(dat)
   })
   source_b <- shiny::reactive({
-    col_data()$source %>%
-      levels() %>%
-      .[2]
+    dat <- tryCatch(
+      col_data()$source %>%
+        levels() %>%
+        .[2],
+      error = function(cond){ "not initialized" }
+      )
+    return(dat)
   })
+
   main_effect_a_comparison_name <- shiny::reactive({ glue::glue("main_in_source_a___{treatment_a()}_vs_{treatment_b()}_in_{source_a()}") })
   main_effect_b_comparison_name <- shiny::reactive({ glue::glue("main_in_source_b___{treatment_a()}_vs_{treatment_b()}_in_{source_b()}") })
   source_effect_a_comparison_name <- shiny::reactive({ glue::glue("source_in_main_a___{source_a()}_vs_{source_b()}_in_{treatment_a()}") })
@@ -202,13 +219,21 @@ server <- function(input, output, session) {
 
   # Update Gene select input
   observe({
-    selected_gene <-
+    selected_gene <- tryCatch(
       de_wide() %>%
-      apply_filter() %>%
-      .$gene_id %>%
-      .[1]
+        apply_filter() %>%
+        .$gene_id %>%
+        .[1],
+      error = function(cond){ "not initialized" }
+    )
+    gene_choices <- tryCatch(
+      de_wide() %>%
+        dplyr::select(gene_id) %>%
+        dplyr::distinct() %>%
+        dplyr::pull(),
+      error = function(cond){ "not initialized" }
+    )
     if (!is.null(input$table_rows_selected)) {
-      # browser()
       selected_gene <- de_wide() %>%
         apply_filter() %>%
         dplyr::slice(input$table_rows_selected) %>%
@@ -217,11 +242,7 @@ server <- function(input, output, session) {
     updateSelectInput(
       session,
       "gene_id",
-      choices = de_wide() %>%
-        dplyr::select(gene_id) %>%
-        dplyr::distinct() %>%
-        dplyr::pull(),
-      # selected = gene_select()
+      choices = gene_choices,
       selected = selected_gene
     )
   })
