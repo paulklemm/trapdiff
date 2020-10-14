@@ -1,5 +1,12 @@
 library(shiny)
 library(shinydashboard)
+# Temprarily point biomart to a mirror
+options(
+  rmyknife.verbose = TRUE,
+  rmyknife.use_biomart_mirror = TRUE,
+  rmyknife.biomart_mirror_host = "useast.ensembl.org"
+)
+library(rmyknife)
 
 fc_scatterplot <- function(
   ggplot_dat,
@@ -149,7 +156,8 @@ server <- function(input, output, session) {
       tidyr::pivot_wider(
         names_from = comparison,
         values_from = c(padj, log2FoldChange)
-      )
+      ) %>%
+      rmyknife::attach_biomart(attributes = "description")
   })
     treatment_a <- shiny::reactive({
     dat <- tryCatch(
@@ -262,9 +270,8 @@ server <- function(input, output, session) {
 
   output$table <- DT::renderDataTable({
     de_wide() %>%
-      # rmyknife::attach_biomart(attributes = "description", ensembl_version = 100) %>%
-      # dplyr::select(ensembl_gene_id, external_gene_name, description, dplyr::everything()) %>%
-      dplyr::select(ensembl_gene_id, external_gene_name, dplyr::everything()) %>%
+      dplyr::select(ensembl_gene_id, external_gene_name, description, dplyr::everything()) %>%
+      # dplyr::select(ensembl_gene_id, external_gene_name, dplyr::everything()) %>%
       apply_filter() %>%
       DT::datatable(
         # extensions = c("Scroller", "Buttons"),
