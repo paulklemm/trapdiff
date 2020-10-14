@@ -103,6 +103,14 @@ These options are only important for developing the package.
 .Dev
 [%collapsible]
 ====
+
+Shiny-App Dev-version
+[source,r]
+----
+shiny::runApp("inst/rmd/trapdiff_shiny")
+# Open with /?trappath=/beegfs/scratch/bruening_scratch/pklemm/2020-05-yiyi-bactrap/release/trapdiff to open a dataset
+----
+
 Debug the RMarkdown doc.
 
 [source,r]
