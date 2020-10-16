@@ -1,5 +1,6 @@
 library(shiny)
 library(shinydashboard)
+library(plotly)
 # Temprarily point biomart to a mirror
 options(
   rmyknife.verbose = TRUE,
@@ -75,7 +76,8 @@ ui <- dashboardPage(
           min = 0,
           max = 50,
           value = 5
-        )
+        ),
+        shiny::textOutput("selection")
      ),
      body = dashboardBody(
        fluidRow(
@@ -92,7 +94,7 @@ ui <- dashboardPage(
         box(
           width = 4,
           collapsible = TRUE,
-          plotOutput("main_scatterplot")
+          plotly::plotlyOutput("main_scatterplot")
         ),
       ),
       fluidRow(
@@ -291,16 +293,34 @@ server <- function(input, output, session) {
         )
       )
   })
-
-  output$main_scatterplot <- renderPlot({
-    de_wide() %>%
+  # Quick and dirty scatterplot selection.
+  # See https://stackoverflow.com/questions/48939382/how-can-i-grab-the-row-of-data-from-a-ggplotly-in-shiny
+  output$selection <- renderPrint({
+    s <- event_data("plotly_click")
+    cat("You selected: \n\n")
+    data.frame(s)
+    updateSelectInput(
+      session,
+      "gene_id",
+      selected = s$key
+    )
+    return(s)
+  })
+  # scatterplot_selection <- reactive({
+  #   s <- event_data("plotly_click")
+  #   cat("You selected: \n\n")
+  #   df <- data.frame(s)
+  # })
+  output$main_scatterplot <- plotly::renderPlotly({
+    plot <- de_wide() %>%
       apply_filter() %>%
       ggplot2::ggplot(
         mapping = ggplot2::aes_string(
           x = glue::glue("log2FoldChange_{main_effect_a_comparison_name()}"),
           y = glue::glue("log2FoldChange_{main_effect_b_comparison_name()}"),
           color = "log2FoldChange_interaction_effect",
-          label = "external_gene_name"
+          label = "external_gene_name",
+          key = "gene_id"
         )
       ) %>%
       fc_scatterplot(
@@ -313,8 +333,9 @@ server <- function(input, output, session) {
       ggplot2::geom_point(
         data = de_wide() %>% dplyr::filter(gene_id == input$gene_id),
         color = "red",
-        size = 10
+        size = 2
       )
+    plotly::ggplotly(plot)
   })
 
   output$plot_each_group <- shiny::renderPlot({
