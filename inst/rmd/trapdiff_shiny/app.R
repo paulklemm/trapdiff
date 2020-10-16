@@ -330,6 +330,8 @@ server <- function(input, output, session) {
         min_range = -input$scatterplot_range,
         max_range = input$scatterplot_range
       ) +
+      ggplot2::geom_hline(yintercept = 0, size = 0.05) +
+      ggplot2::geom_vline(xintercept = 0, size = 0.05) +
       ggplot2::geom_point(
         data = de_wide() %>% dplyr::filter(gene_id == input$gene_id),
         color = "red",
