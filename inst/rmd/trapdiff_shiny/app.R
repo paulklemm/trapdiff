@@ -12,7 +12,6 @@ library(rmyknife)
 fc_scatterplot <- function(
   ggplot_dat,
   colour_lab,
-  title,
   x_lab = "fc_ip",
   y_lab = "fc_input",
   point_alpha = 0.3,
@@ -31,8 +30,7 @@ fc_scatterplot <- function(
     ) +
     # ggplot2::scale_size(trans = 'reverse') +
     ggplot2::scale_color_distiller(palette = "RdBu", type = "div", direction = -1, limits = c(min_range, max_range)) +
-    ggplot2::theme_minimal() +
-    ggplot2::ggtitle(title)
+    ggplot2::theme_minimal()
 }
 
 ui <- dashboardPage(
@@ -166,7 +164,7 @@ server <- function(input, output, session) {
       col_data()$treatment %>%
         levels() %>%
         .[1],
-      error = function(cond){ "not initialized" }
+      error = function(cond){ NULL }
     )
     return(dat)
   })
@@ -175,7 +173,7 @@ server <- function(input, output, session) {
       col_data()$treatment %>%
         levels() %>%
         .[2],
-      error = function(cond){ "not initialized" }
+      error = function(cond){ NULL }
       )
     return(dat)
   })
@@ -184,7 +182,7 @@ server <- function(input, output, session) {
       col_data()$source %>%
         levels() %>%
         .[1],
-      error = function(cond){ "not initialized" }
+      error = function(cond){ NULL }
       )
     return(dat)
   })
@@ -193,15 +191,18 @@ server <- function(input, output, session) {
       col_data()$source %>%
         levels() %>%
         .[2],
-      error = function(cond){ "not initialized" }
+      error = function(cond){ NULL }
       )
     return(dat)
   })
-
-  main_effect_a_comparison_name <- shiny::reactive({ glue::glue("main_in_source_a___{treatment_a()}_vs_{treatment_b()}_in_{source_a()}") })
-  main_effect_b_comparison_name <- shiny::reactive({ glue::glue("main_in_source_b___{treatment_a()}_vs_{treatment_b()}_in_{source_b()}") })
-  source_effect_a_comparison_name <- shiny::reactive({ glue::glue("source_in_main_a___{source_a()}_vs_{source_b()}_in_{treatment_a()}") })
-  source_effect_b_comparison_name <- shiny::reactive({ glue::glue("source_in_main_b___{source_a()}_vs_{source_b()}_in_{treatment_b()}") })
+# main_effect_a_comparison_name <- glue::glue("msa_{treatment_a()}_{treatment_b()}_{source_a()}")
+#   main_effect_b_comparison_name <- glue::glue("msb_{treatment_a()}_{treatment_b()}_{source_b()}")
+#   source_effect_a_comparison_name <- glue::glue("sma_{source_a()}_{source_b()}_{treatment_a()}")
+#   source_effect_b_comparison_name <- glue::glue("smb_{source_a()}_{source_b()}_{treatment_b()}")
+  main_effect_a_comparison_name <- shiny::reactive({ glue::glue("{treatment_a()}_{treatment_b()}_{source_a()}") })
+  main_effect_b_comparison_name <- shiny::reactive({ glue::glue("{treatment_a()}_{treatment_b()}_{source_b()}") })
+  source_effect_a_comparison_name <- shiny::reactive({ glue::glue("{source_a()}_{source_b()}_{treatment_a()}") })
+  source_effect_b_comparison_name <- shiny::reactive({ glue::glue("{source_a()}_{source_b()}_{treatment_b()}") })
 
   gene_select <- shiny::reactive({
     selected_id <- get_first_selected_in_dt(input)
@@ -218,18 +219,20 @@ server <- function(input, output, session) {
 
   # Update filter box
   observe({
-    updateCheckboxGroupInput(
-      session,
-      "select_significant",
-      choices = 
-        tibble::tibble(
-          !!(main_effect_a_comparison_name()) := main_effect_a_comparison_name(),
-          !!(main_effect_b_comparison_name()) := main_effect_b_comparison_name(),
-          !!(source_effect_a_comparison_name()) := source_effect_a_comparison_name(),
-          !!(source_effect_b_comparison_name()) := source_effect_b_comparison_name(),
-          interaction_effect = "interaction_effect"
-        ) %>% as.list()
-    )
+    if (!is.na(treatment_a())) {
+      updateCheckboxGroupInput(
+        session,
+        "select_significant",
+        choices = 
+          tibble::tibble(
+            !!(main_effect_a_comparison_name()) := main_effect_a_comparison_name(),
+            !!(main_effect_b_comparison_name()) := main_effect_b_comparison_name(),
+            !!(source_effect_a_comparison_name()) := source_effect_a_comparison_name(),
+            !!(source_effect_b_comparison_name()) := source_effect_b_comparison_name(),
+            interaction_effect = "interaction_effect"
+          ) %>% as.list()
+      )
+    }
   })
 
   # Update Gene select input
@@ -239,14 +242,14 @@ server <- function(input, output, session) {
         apply_filter() %>%
         .$gene_id %>%
         .[1],
-      error = function(cond){ "not initialized" }
+      error = function(cond){ NULL }
     )
     gene_choices <- tryCatch(
       de_wide() %>%
         dplyr::select(gene_id) %>%
         dplyr::distinct() %>%
         dplyr::pull(),
-      error = function(cond){ "not initialized" }
+      error = function(cond){ NULL }
     )
     if (!is.null(input$table_rows_selected)) {
       selected_gene <- de_wide() %>%
@@ -275,6 +278,15 @@ server <- function(input, output, session) {
       dplyr::select(ensembl_gene_id, external_gene_name, description, dplyr::everything()) %>%
       # dplyr::select(ensembl_gene_id, external_gene_name, dplyr::everything()) %>%
       apply_filter() %>%
+      # Replace long names to make list smaller
+      (function(dat) {
+        colnames(dat) <- stringr::str_replace_all(colnames(dat), "log2FoldChange", "fc")
+        colnames(dat) <- stringr::str_replace_all(colnames(dat), "padj", "p")
+        colnames(dat) <- stringr::str_replace_all(colnames(dat), "interaction_effect", "interaction")
+        return(dat)
+      }) %>%
+      # Round all values to 4 decimals
+      dplyr::mutate_if(is.numeric, round, 4) %>%
       DT::datatable(
         # extensions = c("Scroller", "Buttons"),
         extensions = c("Scroller", "Buttons"),
@@ -291,10 +303,10 @@ server <- function(input, output, session) {
             targets = 0:3, visible = FALSE
           )),
           buttons = c("colvis", "copy", "csv", "excel", "pdf", "print"),
-          scrollX = TRUE,
+          scrollX = TRUE
           # Makes the table more responsive when it's really big
-          scrollY = 250,
-          scroller = TRUE
+          # scrollY = 250,
+          # scroller = TRUE
         )
       )
   })
@@ -329,8 +341,7 @@ server <- function(input, output, session) {
         )
       ) %>%
       fc_scatterplot(
-        colour_lab = "FC interaction effect",
-        title = "FC main effect coloured by FC interaction effect",
+        colour_lab = "FC inter.",
         point_alpha = 1,
         min_range = -input$scatterplot_range,
         max_range = input$scatterplot_range

@@ -434,10 +434,10 @@ select_join <- function(dat) {
 }
 
 # Create a big data frame containing all comparisons of interest
-main_effect_a_comparison_name <- glue::glue("main_in_source_a___{treatment_a}_vs_{treatment_b}_in_{source_a}")
-main_effect_b_comparison_name <- glue::glue("main_in_source_b___{treatment_a}_vs_{treatment_b}_in_{source_b}")
-source_effect_a_comparison_name <- glue::glue("source_in_main_a___{source_a}_vs_{source_b}_in_{treatment_a}")
-source_effect_b_comparison_name <- glue::glue("source_in_main_b___{source_a}_vs_{source_b}_in_{treatment_b}")
+main_effect_a_comparison_name <- glue::glue("{treatment_a}_{treatment_b}_{source_a}")
+main_effect_b_comparison_name <- glue::glue("{treatment_a}_{treatment_b}_{source_b}")
+source_effect_a_comparison_name <- glue::glue("{source_a}_{source_b}_{treatment_a}")
+source_effect_b_comparison_name <- glue::glue("{source_a}_{source_b}_{treatment_b}")
 de <- dplyr::bind_rows(
   main_effect_a %>%
     select_join() %>%
