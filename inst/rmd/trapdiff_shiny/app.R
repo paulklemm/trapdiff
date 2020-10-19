@@ -277,15 +277,20 @@ server <- function(input, output, session) {
       apply_filter() %>%
       DT::datatable(
         # extensions = c("Scroller", "Buttons"),
-        extensions = c("Scroller"),
+        extensions = c("Scroller", "Buttons"),
         selection = "single",
         filter = list(position = "top"),
         options = list(
           # Remove search bar but leave filter
           # https://stackoverflow.com/a/35627085
-          sDom  = '<"top">lrt<"bottom">ip',
-          # dom = "Bfrtip",
-          # buttons = c("copy", "csv", "excel", "pdf", "print"),
+          # sDom  = '<"top">lrt<"bottom">ip',
+          # Enable colvis button
+          dom = "Bfrtip",
+          # Define hidden columns
+          columnDefs = list(list(
+            targets = 0:3, visible = FALSE
+          )),
+          buttons = c("colvis", "copy", "csv", "excel", "pdf", "print"),
           scrollX = TRUE,
           # Makes the table more responsive when it's really big
           scrollY = 250,
