@@ -1,5 +1,5 @@
 ---
-title: "Trapdiff"
+title: "🧲 trapDiff"
 output:
   html_document:
     toc: no
@@ -41,9 +41,29 @@ if (rmd_params$save_figures) {
 }
 ```
 
+**trapdiff** allows interaction term analysis of complex experimental setups, such as riboTRAP or bacTRAP.
+
+This document contains settings and logs for running this analysis and contains the result as spreadsheet.
+
+Here is what you should do.
+
+1. Check the PCA's if the samples cluster properly for your *source* and *treatment* condition.
+2. Check your differentially expressed genes
+3. Check the counts for the DE genes of the interaction term eiter in **DE Interaction Gene Plots** or in the interactive shiny app
+
+Data dictionary for the output table (see DE genes).
+
+| Column                              | Description                                                                                                                                                                                                                                          |
+|-------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `gene_id`                           | [ensembl.org](https://www.ensembl.org/info/genome/stable_ids/index.html) gene stable ID and gene name                                                                                                                                                |
+| `padj_x_y_z`                        | [DESeq2](https://doi.org/10.1186/s13059-014-0550-8) - Benjamini-Hochberg adjusted `pvalue`, adjustment for false discovery rate (FDR). Comparison of group `x` and `y` in condition `z`.                                                             |
+| `padj_interaction_effect`           | [DESeq2](https://doi.org/10.1186/s13059-014-0550-8) - Benjamini-Hochberg adjusted `pvalue`, adjustment for false discovery rate (FDR). Value for `interaction effect`.                                                                               |
+| `log2FoldChange_x_y_z`              | [DESeq2](https://doi.org/10.1186/s13059-014-0550-8) - effect size estimate between group `x` and `y` in condition `z`. A log2 fold change of 1.5 means the gene expression is increased by 2^1.5 = 2.82.. Comparison of group x vs y in condition z. |
+| `log2FoldChange_interaction_effect` | [DESeq2](https://doi.org/10.1186/s13059-014-0550-8) - effect size estimate of the `interaction effect`.                                                                                                                                              |
+
 ## {.tabset}
 
-### Quality Control
+### Analysis Run
 
 #### Configuration
 
@@ -366,7 +386,7 @@ names(deseq_results_treatment) <-
 
 </details>
 
-#### Principal Component Analysis
+### Principal Component Analysis
 
 The **P**rincipal **C**omponent **A**nalysis (PCA) shows which samples are similar on a genomic level.
 We want our experimental groups to cluster.
@@ -437,8 +457,6 @@ deseq_results_treatment %>%
 
 
 ```
-
-### Differentially Expressed (DE) Genes
 
 ```{r get-contrasts}
 # This works at the moment only for two treatment groups
@@ -527,6 +545,8 @@ de_wide <- de %>%
   )
 ```
 
+### Differentially Expressed (DE) Genes
+
 Let's check the DE genes for each effect.
 
 ```{r de-summary-table, warning = FALSE, message = FALSE}
@@ -541,14 +561,46 @@ de %>%
     up_regulated = sum(sig_up_regulated, na.rm = TRUE),
     down_regulated = sum(sig_down_regulated, na.rm = TRUE),
   ) %>%
-  rmarkdown::paged_table()
+  knitr::kable()
 
 ```
 
-#### Gene Plots
+```{r datatable, warning = FALSE}
+
+de_wide %>%
+  dplyr::mutate(
+    gene_id = paste0(ensembl_gene_id, "_", external_gene_name)
+  ) %>%
+  dplyr::select(-ensembl_gene_id, -external_gene_name) %>%
+  dplyr::select(gene_id, dplyr::everything()) %>%
+  # Round all values to 4 decimals
+  # dplyr::mutate_if(is.numeric, round, 4) %>%
+  crosstalk::SharedData$new(~gene_id, group = "Choose a gene") %>%
+  DT::datatable(
+    # extensions = c("Scroller", "ColReorder", "FixedColumns"),
+    extensions = c("Scroller", "Buttons"),
+    options = list(
+      # dom = "t",
+      scrollX = TRUE,
+      buttons = c("copy", "csv", "excel", "pdf", "print"),
+      # Makes the table more responsive when it's really big
+      scrollY = 500,
+      scroller = TRUE # ,
+    )
+    # extensions = "Scroller",
+    # style = "bootstrap",
+    # class = "compact",
+    # options = list(deferRender = TRUE)
+  )
+```
+
+### DE Interaction Gene Plots
 
 Because of a technically limitation, please first select a gene of interest here and then open the plot.
 Otherwise this will drastically slow down your browser.
+
+This is only suitable for briefly checking the results.
+For a proper analysis tool, check the results using the shiny application.
 
 ```{r prepare-gene-plot}
 gene_plot <- function(dat) {
@@ -628,64 +680,31 @@ plot_dat_sd %>%
 
 </details>
 
-```{r datatable, warning = FALSE}
-
-de_wide %>%
-  dplyr::mutate(
-    gene_id = paste0(ensembl_gene_id, "_", external_gene_name)
-  ) %>%
-  dplyr::select(-ensembl_gene_id, -external_gene_name) %>%
-  dplyr::select(gene_id, dplyr::everything()) %>%
-  # Round all values to 4 decimals
-  dplyr::mutate_if(is.numeric, round, 4) %>%
-  crosstalk::SharedData$new(~gene_id, group = "Choose a gene") %>%
-  DT::datatable(
-    # extensions = c("Scroller", "ColReorder", "FixedColumns"),
-    extensions = c("Scroller"),
-    # class = "compact",
-    # style="bootstrap",
-    options = list(
-      # dom = "t",
-      scrollX = TRUE,
-      # colReorder = list(realtime = FALSE),
-      # fixedColumns = list(leftColumns = 2),
-      # Makes the table more responsive when it's really big
-      scrollY = 300,
-      scroller = TRUE # ,
-      # deferRender = TRUE
-    )
-    # extensions = "Scroller",
-    # style = "bootstrap",
-    # class = "compact",
-    # options = list(deferRender = TRUE)
-  )
-```
-
 ```{r interactive-scatterplot}
-fc_scatterplot <-
-  function(
-           ggplot_dat,
-           colour_lab,
-           title,
-           x_lab = "fc_ip",
-           y_lab = "fc_input",
-           point_alpha = 0.3) {
-    ggplot_dat +
-      ggplot2::geom_point(
-        alpha = point_alpha
-      ) +
-      ggplot2::scale_x_continuous(limits = c(-5, 5)) +
-      ggplot2::scale_y_continuous(limits = c(-5, 5)) +
-      ggplot2::labs(
-        # x = x_lab,
-        # y = y_lab,
-        colour = colour_lab
-      ) +
-      # ggplot2::scale_size(trans = 'reverse') +
-      ggplot2::scale_color_distiller(palette = "RdBu", type = "div", direction = -1, limits = c(-5, 5)) +
-      ggplot2::theme_minimal() +
-      ggplot2::ggtitle(title)
-  }
+fc_scatterplot <- function(
+  ggplot_dat,
+  colour_lab,
+  title,
+  x_lab = "fc_ip",
+  y_lab = "fc_input",
+  point_alpha = 0.3
+){
+  ggplot_dat +
+    ggplot2::geom_point(
+      alpha = point_alpha
+    ) +
+    # ggplot2::scale_x_continuous(limits = c(-5, 5)) +
+    # ggplot2::scale_y_continuous(limits = c(-5, 5)) +
+    ggplot2::labs(
+      # x = x_lab,
+      # y = y_lab,
+      colour = colour_lab
+    ) +
+    # ggplot2::scale_size(trans = 'reverse') +
+    ggplot2::scale_color_distiller(palette = "RdBu", type = "div", direction = -1, limits = c(-5, 5)) +
+    ggplot2::theme_minimal() +
+    ggplot2::ggtitle(title)
+}
 
 plot <- de_wide %>%
   dplyr::filter(padj_interaction_effect <= 0.05) %>%

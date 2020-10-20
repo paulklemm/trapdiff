@@ -288,7 +288,6 @@ server <- function(input, output, session) {
       # Round all values to 4 decimals
       dplyr::mutate_if(is.numeric, round, 4) %>%
       DT::datatable(
-        # extensions = c("Scroller", "Buttons"),
         extensions = c("Scroller", "Buttons"),
         selection = "single",
         filter = list(position = "top"),
