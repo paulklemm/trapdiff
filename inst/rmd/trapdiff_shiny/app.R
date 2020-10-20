@@ -219,19 +219,24 @@ server <- function(input, output, session) {
 
   # Update filter box
   observe({
-    if (!is.na(treatment_a())) {
-      updateCheckboxGroupInput(
-        session,
-        "select_significant",
-        choices = 
-          tibble::tibble(
-            !!(main_effect_a_comparison_name()) := main_effect_a_comparison_name(),
-            !!(main_effect_b_comparison_name()) := main_effect_b_comparison_name(),
-            !!(source_effect_a_comparison_name()) := source_effect_a_comparison_name(),
-            !!(source_effect_b_comparison_name()) := source_effect_b_comparison_name(),
-            interaction_effect = "interaction_effect"
-          ) %>% as.list()
-      )
+    # We need to to the length-thing to catch a really weird behavior
+    # in R which outputs NULL == "bla" to logical(0). For details check
+    # https://stackoverflow.com/questions/27350636/r-argument-is-of-length-zero-in-if-statement
+    if (length(treatment_a()) > 0) {
+      if (!is.na(treatment_a())) {
+        updateCheckboxGroupInput(
+          session,
+          "select_significant",
+          choices = 
+            tibble::tibble(
+              !!(main_effect_a_comparison_name()) := main_effect_a_comparison_name(),
+              !!(main_effect_b_comparison_name()) := main_effect_b_comparison_name(),
+              !!(source_effect_a_comparison_name()) := source_effect_a_comparison_name(),
+              !!(source_effect_b_comparison_name()) := source_effect_b_comparison_name(),
+              interaction_effect = "interaction_effect"
+            ) %>% as.list()
+        )
+      }
     }
   })
 
