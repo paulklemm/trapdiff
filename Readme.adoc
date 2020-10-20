@@ -35,48 +35,56 @@ We define our experiment using a JSON file.
 ```json
 {
   "source": {
-    "ip": [
-      "wt_ip_ncd_1",
-      "wt_ip_ncd_2",
-      "wt_ip_ncd_3",
-      "wt_ip_hfd_1",
-      "wt_ip_hfd_2",
-      "wt_ip_hfd_3",
-      "wt_ip_hfd_4"
+    "cd": [
+      "cd1_ip_gfp",
+      "cd2_ip_gfp",
+      "cd3_ip_gfp",
+      "cd4_ip_gfp",
+      "cd1_input",
+      "cd2_input",
+      "cd3_input",
+      "cd4_input"
     ],
-    "input": [
-      "wt_input_ncd_1",
-      "wt_input_ncd_2",
-      "wt_input_ncd_3",
-      "wt_input_hfd_1",
-      "wt_input_hfd_2",
-      "wt_input_hfd_3",
-      "wt_input_hfd_4"
+    "hfd": [
+      "hfd1_ip_gfp",
+      "hfd2_ip_gfp",
+      "hfd3_ip_gfp",
+      "hfd4_ip_gfp",
+      "hfd1_input",
+      "hfd2_input",
+      "hfd3_input",
+      "hfd4_input"
     ]
   },
   "treatment": {
-    "hfd": [
-      "wt_ip_hfd_1",
-      "wt_ip_hfd_2",
-      "wt_ip_hfd_3",
-      "wt_ip_hfd_4",
-      "wt_input_hfd_1",
-      "wt_input_hfd_2",
-      "wt_input_hfd_3",
-      "wt_input_hfd_4"
+    "ip": [
+      "cd1_ip_gfp",
+      "cd2_ip_gfp",
+      "cd3_ip_gfp",
+      "cd4_ip_gfp",
+      "hfd1_ip_gfp",
+      "hfd2_ip_gfp",
+      "hfd3_ip_gfp",
+      "hfd4_ip_gfp"
     ],
-    "ncd": [
-      "wt_ip_ncd_1",
-      "wt_ip_ncd_3",
-      "wt_ip_ncd_2",
-      "wt_input_ncd_1",
-      "wt_input_ncd_2",
-      "wt_input_ncd_3"
+    "input": [
+      "cd1_input",
+      "cd2_input",
+      "cd3_input",
+      "cd4_input",
+      "hfd1_input",
+      "hfd2_input",
+      "hfd3_input",
+      "hfd4_input"
     ]
   },
   "treatment_comparison": [
+    "ip",
+    "input"
+  ],
+  "source_comparison": [
     "hfd",
-    "ncd"
+    "cd"
   ]
 }
 ```
@@ -84,7 +92,7 @@ We define our experiment using a JSON file.
 ====
 
 In `treatment_comparison` we say which comparison we want.
-In this example, we compare `HFD vs NCD`.
+In this example, we compare `IP vs Input`.
 
 You also need to provide a counts object that contains a tabular representation of your count matrix.
 It needs to contain a column `ensembl_gene_id` and a column for each sample.
