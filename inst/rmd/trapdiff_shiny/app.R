@@ -73,7 +73,7 @@ ui <- dashboardPage(
           label = "Scatterplot range:",
           min = 0,
           max = 50,
-          value = 5
+          value = 10
         ),
         shiny::textOutput("selection")
      ),
