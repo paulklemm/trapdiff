@@ -320,6 +320,48 @@ names(deseq_results_source) <-
   col_data$source %>%
   levels()
 
+# Create DESeq2 data for treatment groups separately to be able to
+# plot the PCA for these groups individually
+deseq_results_treatment <-
+  col_data$treatment %>%
+  levels() %>%
+  purrr::map(
+    function(treatment_level) {
+      # treatment_level <- "ip"
+      treatment_level_samples <-
+        col_data %>%
+        dplyr::filter(treatment == treatment_level) %>%
+        .$id
+      # Filter counts file only for samples of current level
+      treatment_level_counts <-
+        counts %>%
+        dplyr::select(ensembl_gene_id, treatment_level_samples)
+      # Create col_data only for current treatment level
+      treatment_level_col_data <-
+        dplyr::left_join(
+          x = tibble::tibble(
+            id = treatment_level_counts %>% dplyr::select(-ensembl_gene_id) %>% colnames()
+          ),
+          y = col_data,
+          by = "id"
+        )
+      # Create DESeq2 object
+      treatment_level_deseq_result <- DESeq2::DESeqDataSetFromMatrix(
+        countData = treatment_level_counts %>% as.data.frame(),
+        colData = treatment_level_col_data,
+        design = ~ source,
+        tidy = TRUE
+      ) %>%
+        DESeq2::DESeq()
+      treatment_level_deseq_result %>%
+        return()
+    }
+  )
+# Set the names for the list of DESeq2 results
+names(deseq_results_treatment) <-
+  col_data$treatment %>%
+  levels()
+
 ```
 
 </details>
@@ -377,6 +419,22 @@ deseq_results_source %>%
       pca_plot(glue::glue("Source level {source_name}")) %>%
       print()
   })
+
+# PCA for each treatment level
+deseq_results_treatment %>%
+  names() %>%
+  purrr::walk(function(treatment_name) {
+    # treatment_name <- "ip"
+    deseq_result_treatment <- deseq_results_treatment[treatment_name][[1]]
+    DESeq2::plotPCA(
+      DESeq2::vst(deseq_result_treatment, blind = FALSE),
+      intgroup = "source",
+      returnData = TRUE
+    ) %>%
+      pca_plot(glue::glue("Treatment level {treatment_name}")) %>%
+      print()
+  })
+
 
 ```
 
