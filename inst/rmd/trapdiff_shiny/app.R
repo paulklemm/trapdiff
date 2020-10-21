@@ -394,7 +394,8 @@ server <- function(input, output, session) {
           y = value
         )
       ) +
-      ggplot2::geom_violin() +
+      #ggplot2::geom_violin() +
+      ggplot2::geom_boxplot() +
       ggplot2::geom_jitter(width = 0.1) +
       ggplot2::ggtitle(input$gene_id)
   })
