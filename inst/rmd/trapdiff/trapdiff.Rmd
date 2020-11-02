@@ -739,39 +739,72 @@ fc_scatterplot <- function(
     ggplot2::ggtitle(title)
 }
 
-plot <- de_wide %>%
+interaction_term_count <-
+  de_wide %>%
   dplyr::filter(padj_interaction_effect <= 0.05) %>%
-  # Some genes names are encoded multiple times by different ensembl gene ids
-  # We therfore need to concatinate the two
-  dplyr::mutate(
-    gene_id = glue::glue("{ensembl_gene_id}_{external_gene_name}")
-  ) %>%
-  #  crosstalk::SharedData$new(~gene_id, group = "Choose a gene") %>%
-  ggplot2::ggplot(
-    mapping = ggplot2::aes_string(
-      x = glue::glue("log2FoldChange_{main_effect_a_comparison_name}"),
-      # x = "log2FoldChange_main_effect_in_source_a(ip_vs_input_in_il6)",
-      y = glue::glue("log2FoldChange_{main_effect_b_comparison_name}"),
-      # y = "log2FoldChange_main_effect_in_source_b(ip_vs_input_in_nacl)",
-      color = "log2FoldChange_interaction_effect",
-      label = "external_gene_name"
-    )
-  ) %>%
-  fc_scatterplot(
-    colour_lab = "FC interaction effect",
-    title = "FC main effect coloured by FC interaction effect",
-    point_alpha = 1
-  )
+  nrow()
 
-plot %>%
-  plotly::ggplotly() %>%
-  plotly::highlight(
-    on = "plotly_click",
-    off = "plotly_doubleclick",
-    dynamic = FALSE,
-    color = "red",
-    selectize = TRUE
-  )
+if (interaction_term_count > 0) {
+  plot <- de_wide %>%
+    dplyr::filter(padj_interaction_effect <= 0.05) %>%
+    # Some genes names are encoded multiple times by different ensembl gene ids
+    # We therfore need to concatinate the two
+    dplyr::mutate(
+      gene_id = glue::glue("{ensembl_gene_id}_{external_gene_name}")
+    ) %>%
+    #  crosstalk::SharedData$new(~gene_id, group = "Choose a gene") %>%
+    ggplot2::ggplot(
+      mapping = ggplot2::aes_string(
+        x = glue::glue("log2FoldChange_{main_effect_a_comparison_name}"),
+        # x = "log2FoldChange_main_effect_in_source_a(ip_vs_input_in_il6)",
+        y = glue::glue("log2FoldChange_{main_effect_b_comparison_name}"),
+        # y = "log2FoldChange_main_effect_in_source_b(ip_vs_input_in_nacl)",
+        color = "log2FoldChange_interaction_effect",
+        label = "external_gene_name"
+      )
+    ) %>%
+    fc_scatterplot(
+      colour_lab = "FC interaction effect",
+      title = "FC main effect coloured by FC interaction effect",
+      point_alpha = 1
+    )
+
+  plot <- de_wide %>%
+    dplyr::filter(padj_interaction_effect <= 0.05) %>%
+    # Some genes names are encoded multiple times by different ensembl gene ids
+    # We therfore need to concatinate the two
+    dplyr::mutate(
+      gene_id = glue::glue("{ensembl_gene_id}_{external_gene_name}")
+    ) %>%
+    #  crosstalk::SharedData$new(~gene_id, group = "Choose a gene") %>%
+    ggplot2::ggplot(
+      mapping = ggplot2::aes_string(
+        x = glue::glue("log2FoldChange_{main_effect_a_comparison_name}"),
+        # x = "log2FoldChange_main_effect_in_source_a(ip_vs_input_in_il6)",
+        y = glue::glue("log2FoldChange_{main_effect_b_comparison_name}"),
+        # y = "log2FoldChange_main_effect_in_source_b(ip_vs_input_in_nacl)",
+        color = "log2FoldChange_interaction_effect",
+        label = "external_gene_name"
+      )
+    ) %>%
+    fc_scatterplot(
+      colour_lab = "FC interaction effect",
+      title = "FC main effect coloured by FC interaction effect",
+      point_alpha = 1
+    )
+
+  plot %>%
+    plotly::ggplotly() %>%
+    plotly::highlight(
+      on = "plotly_click",
+      off = "plotly_doubleclick",
+      dynamic = FALSE,
+      color = "red",
+      selectize = TRUE
+    )
+} else {
+  print("There are no genes differentially expressed with the interaction term.")
+}
 ```
 
 <details>
