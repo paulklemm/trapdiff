@@ -609,22 +609,7 @@ de_wide %>%
   # Round all values to 4 decimals
   # dplyr::mutate_if(is.numeric, round, 4) %>%
   crosstalk::SharedData$new(~gene_id, group = "Choose a gene") %>%
-  DT::datatable(
-    # extensions = c("Scroller", "ColReorder", "FixedColumns"),
-    extensions = c("Scroller", "Buttons"),
-    options = list(
-      # dom = "t",
-      scrollX = TRUE,
-      buttons = c("copy", "csv", "excel", "pdf", "print"),
-      # Makes the table more responsive when it's really big
-      scrollY = 500,
-      scroller = TRUE # ,
-    )
-    # extensions = "Scroller",
-    # style = "bootstrap",
-    # class = "compact",
-    # options = list(deferRender = TRUE)
-  )
+  rmyknife::dt_datatable()
 ```
 
 ### DE Interaction Gene Plots
