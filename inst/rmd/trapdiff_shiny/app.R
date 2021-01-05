@@ -148,8 +148,11 @@ server <- function(input, output, session) {
   col_data <- shiny::reactive({
     readRDS(glue::glue("{input$trappath}/col_data.rds"))
   })
-  counts <- shiny::reactive({
-    readRDS(glue::glue("{input$trappath}/counts.rds"))
+  tpms <- shiny::reactive({
+    readRDS(glue::glue("{input$trappath}/tpms.rds"))
+  })
+  tpms <- shiny::reactive({
+    readRDS(glue::glue("{input$trappath}/tpms.rds"))
   })
   de_wide <- shiny::reactive({
     de() %>%
@@ -361,12 +364,12 @@ server <- function(input, output, session) {
   })
 
   output$plot_each_group <- shiny::renderPlot({
-    # Create a tidy long format of counts
+    # Create a tidy long format of tpms
     plot_dat <- dplyr::left_join(
       x = col_data() %>%
         dplyr::mutate(group = glue::glue("{source}_{treatment}")) %>%
         dplyr::select(id, group),
-      y = counts(),
+      y = tpms(),
       by = c("id" = "sample")
     ) %>%
       # Filtr all genes where we do not get a gene name
@@ -397,7 +400,7 @@ server <- function(input, output, session) {
       #ggplot2::geom_violin() +
       ggplot2::geom_boxplot() +
       ggplot2::geom_jitter(width = 0.1) +
-      ggplot2::ggtitle(input$gene_id)
+      ggplot2::ggtitle(glue::glue("TPMs {input$gene_id}"))
   })
 
   output$stats_plot <- shiny::renderPlot({
