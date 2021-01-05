@@ -477,7 +477,7 @@ deseq_results_treatment %>%
 
 ```
 
-```{r get-contrasts}
+```{r get-contrasts, message = FALSE}
 # This works at the moment only for two treatment groups
 main_effect_a <- DESeq2::results(
   object = deseq_result,
@@ -564,7 +564,7 @@ de_wide <- de %>%
   )
 ```
 
-```{r save_result}
+```{r save_result, message = FALSE}
 
 if (rmd_params$save_rds) {
   # Save differentially expressed genes
