@@ -51,6 +51,7 @@ get_test_counts_marta <- function() {
 #' @param out_path Output folder for report and intermediate files
 #' @param biotypes_filter Filter genes for these biotypes
 #' @param tpms_min A gene is included when at least one sample contains tpms_min reads
+#' @param padj_cutoff Minimum padj value for a significantly differentially expressed gene
 #' @param save_rds Save rds file of results
 #' @param save_excel Save Excel sheets of results
 #' @param save_figures Save output figures as png and pdf in out_path/figures
@@ -64,6 +65,7 @@ trapdiff <- function(
   ensembl_version = 100,
   biotypes_filter = "protein_coding",
   tpms_min = 5,
+  padj_cutoff = 0.05,
   save_rds = TRUE,
   save_excel = TRUE,
   save_figures = TRUE
@@ -91,6 +93,7 @@ trapdiff <- function(
       path_config_json = path_config_json,
       biotypes_filter = biotypes_filter,
       tpms_min = tpms_min,
+      padj_cutoff = padj_cutoff,
       save_rds = save_rds,
       save_excel = save_excel,
       save_figures = save_figures,

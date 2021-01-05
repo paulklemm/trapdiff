@@ -12,6 +12,7 @@ trapdiff(
   ensembl_version = 100,
   biotypes_filter = "protein_coding",
   tpms_min = 5,
+  padj_cutoff = 0.05,
   save_rds = TRUE,
   save_excel = TRUE,
   save_figures = TRUE
@@ -31,6 +32,8 @@ trapdiff(
 \item{biotypes_filter}{Filter genes for these biotypes}
 
 \item{tpms_min}{A gene is included when at least one sample contains tpms_min reads}
+
+\item{padj_cutoff}{Minimum padj value for a significantly differentially expressed gene}
 
 \item{save_rds}{Save rds file of results}
 

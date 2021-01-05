@@ -13,6 +13,7 @@ params:
   counts: ""
   tpms: ""
   tpms_min: 0
+  padj_cutoff: 0.05
   ensembl_version: 100
   biotypes_filter: !r NA
   save_figures: TRUE
@@ -620,8 +621,8 @@ Let's check the DE genes for each effect.
 
 de %>%
   dplyr::mutate(
-    sig_up_regulated = padj <= 0.05 & log2FoldChange > 0,
-    sig_down_regulated = padj <= 0.05 & log2FoldChange < 0
+    sig_up_regulated = padj <= rmd_params$padj_cutoff & log2FoldChange > 0,
+    sig_down_regulated = padj <= rmd_params$padj_cutoff & log2FoldChange < 0
   ) %>%
   dplyr::group_by(comparison) %>%
   dplyr::summarise(
@@ -695,7 +696,7 @@ plot_dat <- dplyr::left_join(
     by = "ensembl_gene_id"
   ) %>%
   # Filter only for genes with significant interaction effect
-  dplyr::filter(padj_interaction_effect <= 0.05) %>%
+  dplyr::filter(padj_interaction_effect <= rmd_params$padj_cutoff) %>%
   dplyr::filter(!is.na(padj_interaction_effect)) %>%
   dplyr::arrange(padj_interaction_effect)
 
@@ -760,12 +761,12 @@ fc_scatterplot <- function(
 
 interaction_term_count <-
   de_wide %>%
-  dplyr::filter(padj_interaction_effect <= 0.05) %>%
+  dplyr::filter(padj_interaction_effect <= rmd_params$padj_cutoff) %>%
   nrow()
 
 if (interaction_term_count > 0) {
   plot <- de_wide %>%
-    dplyr::filter(padj_interaction_effect <= 0.05) %>%
+    dplyr::filter(padj_interaction_effect <= rmd_params$padj_cutoff) %>%
     # Some genes names are encoded multiple times by different ensembl gene ids
     # We therfore need to concatinate the two
     dplyr::mutate(
@@ -789,7 +790,7 @@ if (interaction_term_count > 0) {
     )
 
   plot <- de_wide %>%
-    dplyr::filter(padj_interaction_effect <= 0.05) %>%
+    dplyr::filter(padj_interaction_effect <= rmd_params$padj_cutoff) %>%
     # Some genes names are encoded multiple times by different ensembl gene ids
     # We therfore need to concatinate the two
     dplyr::mutate(
@@ -831,7 +832,7 @@ if (interaction_term_count > 0) {
 
 ```{r de-plot}
 de_wide %>%
-  dplyr::mutate(interaction_significant = padj_interaction_effect <= 0.05) %>%
+  dplyr::mutate(interaction_significant = padj_interaction_effect <= rmd_params$padj_cutoff) %>%
   ggplot2::ggplot(
     mapping = ggplot2::aes_string(
       x = glue::glue("log2FoldChange_{main_effect_a_comparison_name}"),
@@ -849,8 +850,8 @@ de_wide %>%
 
 ```{r additional-de-plot}
 de_wide %>%
-  # dplyr::filter(padj_source_effect_a <= 0.05) %>%
-  dplyr::filter(get(glue::glue("padj_{source_effect_a_comparison_name}")) <= 0.05) %>%
+  # dplyr::filter(padj_source_effect_a <= rmd_params$padj_cutoff) %>%
+  dplyr::filter(get(glue::glue("padj_{source_effect_a_comparison_name}")) <= rmd_params$padj_cutoff) %>%
   ggplot2::ggplot(
     mapping = ggplot2::aes_string(
       x = glue::glue("log2FoldChange_{main_effect_a_comparison_name}"),
@@ -864,7 +865,7 @@ de_wide %>%
   )
 
 de_wide %>%
-  dplyr::filter(get(glue::glue("padj_{source_effect_b_comparison_name}")) <= 0.05) %>%
+  dplyr::filter(get(glue::glue("padj_{source_effect_b_comparison_name}")) <= rmd_params$padj_cutoff) %>%
   ggplot2::ggplot(
     mapping = ggplot2::aes_string(
       x = glue::glue("log2FoldChange_{main_effect_a_comparison_name}"),
@@ -883,9 +884,9 @@ Let's check how big the overlap between source and interaction is.
 ```{r overlap-source-interaction}
 # de_wide %>%
 #   dplyr::mutate(
-#     source_a_regulated = padj_source_effect_a <= 0.05,
-#     source_b_regulated = padj_source_effect_b <= 0.05,
-#     interaction_regulated = padj_interaction_effect <= 0.05
+#     source_a_regulated = padj_source_effect_a <= rmd_params$padj_cutoff,
+#     source_b_regulated = padj_source_effect_b <= rmd_params$padj_cutoff,
+#     interaction_regulated = padj_interaction_effect <= rmd_params$padj_cutoff
 #   ) %>%
 #   dplyr::select(source_a_regulated, source_b_regulated, interaction_regulated) %>%
 #   # Replace NA values by "FALSE"
