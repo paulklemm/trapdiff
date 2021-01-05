@@ -218,7 +218,8 @@ genes_satisfying_min_tpms <- tpms %>%
   dplyr::distinct() %>%
   dplyr::pull()
 
-tpms <- tpms %>%
+# Here we need to update the counts based on the minimum TPM filter
+counts <- counts %>%
   dplyr::filter(ensembl_gene_id %in% genes_satisfying_min_tpms)
 
 ```
