@@ -11,7 +11,7 @@ trapdiff(
   out_path,
   ensembl_version = 100,
   biotypes_filter = "protein_coding",
-  counts_min = 30,
+  tpms_min = 5,
   save_rds = TRUE,
   save_excel = TRUE,
   save_figures = TRUE
@@ -30,7 +30,7 @@ trapdiff(
 
 \item{biotypes_filter}{Filter genes for these biotypes}
 
-\item{counts_min}{A gene is included when at least one sample contains counts_min reads}
+\item{tpms_min}{A gene is included when at least one sample contains tpms_min reads}
 
 \item{save_rds}{Save rds file of results}
 

@@ -50,7 +50,7 @@ get_test_counts_marta <- function() {
 #' @param path_config_json Configuration file telling trapdiff group associations
 #' @param out_path Output folder for report and intermediate files
 #' @param biotypes_filter Filter genes for these biotypes
-#' @param counts_min A gene is included when at least one sample contains counts_min reads
+#' @param tpms_min A gene is included when at least one sample contains tpms_min reads
 #' @param save_rds Save rds file of results
 #' @param save_excel Save Excel sheets of results
 #' @param save_figures Save output figures as png and pdf in out_path/figures
@@ -63,7 +63,7 @@ trapdiff <- function(
   out_path,
   ensembl_version = 100,
   biotypes_filter = "protein_coding",
-  counts_min = 30,
+  tpms_min = 5,
   save_rds = TRUE,
   save_excel = TRUE,
   save_figures = TRUE
@@ -90,7 +90,7 @@ trapdiff <- function(
       path_out = out_path,
       path_config_json = path_config_json,
       biotypes_filter = biotypes_filter,
-      counts_min = counts_min,
+      tpms_min = tpms_min,
       save_rds = save_rds,
       save_excel = save_excel,
       save_figures = save_figures,
