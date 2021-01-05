@@ -258,7 +258,7 @@ counts %>%
 
 The head of the tpm table looks as follows. This table is only used for filtering gene minimum expression as well as for visualization later on.
 
-```{r print_top_entries}
+```{r print_top_entries_tpms}
 
 tpms %>%
   head() %>%
