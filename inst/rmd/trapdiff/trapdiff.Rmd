@@ -11,6 +11,7 @@ params:
   path_out: "./"
   path_config_json: ""
   counts: ""
+  tpms: ""
   counts_min: 0
   ensembl_version: 100
   biotypes_filter: !r NA
@@ -49,7 +50,7 @@ Here is what you should do.
 
 1. Check the PCA's if the samples cluster properly for your *source* and *treatment* condition.
 2. Check your differentially expressed genes
-3. Check the counts for the DE genes of the interaction term eiter in **DE Interaction Gene Plots** or in the interactive shiny app
+3. Check the TPMs for the DE genes of the interaction term eiter in **DE Interaction Gene Plots** or in the interactive shiny app
 
 Data dictionary for the output table (see DE genes).
 
@@ -73,8 +74,7 @@ Data dictionary for the output table (see DE genes).
 ```{r show-run-config, paged.print = TRUE}
 # Print settings as table
 print_params <- rmd_params
-print_params$counts <- "not displayed"
-rmyknife::print_params(print_params)
+rmyknife::print_params(print_params, omit = c("counts", "tpms"))
 ```
 
 ```{r import-settings}
@@ -167,6 +167,16 @@ undefined_samples$id %>%
     counts <<- counts %>%
       dplyr::select(-dplyr::contains(na_sample))
   })
+# Also remove these samples from the tpm count matrix
+# This will not affect trapdiff in any way, it just causes
+# no confusion when we export the TPMs with trapdiff as well
+tpms <- rmd_params$tpms
+undefined_samples$id %>%
+  purrr::walk(function(na_sample) {
+    tpms <<- tpms %>%
+      dplyr::select(-dplyr::contains(na_sample))
+  })
+
 
 # Remove undefined samples from col_data
 col_data <- col_data %>%
@@ -242,6 +252,15 @@ The head of the counts table looks as follows.
 ```{r print_top_entries}
 
 counts %>%
+  head() %>%
+  rmarkdown::paged_table()
+```
+
+The head of the tpm table looks as follows. This table is only used for filtering gene minimum expression as well as for visualization later on.
+
+```{r print_top_entries}
+
+tpms %>%
   head() %>%
   rmarkdown::paged_table()
 ```
@@ -548,14 +567,17 @@ de_wide <- de %>%
 ```{r save_result}
 
 if (rmd_params$save_rds) {
+  # Save differentially expressed genes
   saveRDS(
     object = de,
     file = glue::glue("{rmd_params$path_out}/de.rds")
   )
+  # Save column data object
   saveRDS(
     object = col_data,
     file = glue::glue("{rmd_params$path_out}/col_data.rds")
   )
+  # Save raw Salmon counts
   saveRDS(
     object = counts %>%
       tidyr::pivot_longer(cols = -ensembl_gene_id, names_to = "sample") %>%
@@ -566,6 +588,18 @@ if (rmd_params$save_rds) {
         verbose = FALSE
       ),
     file = glue::glue("{rmd_params$path_out}/counts.rds")
+  )
+  # Save Salmon tpms
+  saveRDS(
+    object = tpms %>%
+      tidyr::pivot_longer(cols = -ensembl_gene_id, names_to = "sample") %>%
+      # Attach variable name
+      rmyknife::attach_biomart(
+        attributes = "external_gene_name",
+        ensembl_version = rmd_params$ensembl_version,
+        verbose = FALSE
+      ),
+    file = glue::glue("{rmd_params$path_out}/tpms.rds")
   )
 }
 
@@ -632,12 +666,12 @@ gene_plot <- function(dat) {
     ggplot2::geom_point(position = "jitter")
 }
 
-# Create a tidy long format of counts
+# Create a tidy long format of tpms
 plot_dat <- dplyr::left_join(
   x = col_data %>%
     dplyr::mutate(group = glue::glue("{source}_{treatment}")) %>%
     dplyr::select(id, group),
-  y = rmd_params$counts %>%
+  y = rmd_params$tpms %>%
     tidyr::pivot_longer(cols = -ensembl_gene_id, names_to = "sample") %>%
     # Attach variable name
     rmyknife::attach_biomart(

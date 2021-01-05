@@ -94,10 +94,14 @@ We define our experiment using a JSON file.
 In `treatment_comparison` we say which comparison we want.
 In this example, we compare `IP vs Input`.
 
-You also need to provide a counts object that contains a tabular representation of your count matrix.
+You also need to provide a counts object that contains a tabular representation of your count matrix. 
+It must not be normalized to library size (see DESeq2 requirements on input count matrices).
 It needs to contain a column `ensembl_gene_id` and a column for each sample.
 
 *The counts are rounded to integers to comply with DESeq2 standards during the analysis!*
+
+Additionally, we require a TPM object that contains library-size normalized counts.
+It must contain a `ensembl_gene_id` column.
 
 == Shiny
 
@@ -121,34 +125,13 @@ shiny::runApp("inst/rmd/trapdiff_shiny")
 
 Debug the RMarkdown doc.
 
-[source,r]
-----
-mywd <- getwd()
-xaringan::infinite_moon_reader(
-  moon = "inst/rmd/trapdiff/trapdiff.Rmd",
-  cast_from = file.path(mywd, "inst", "rmd", "trapdiff"),
-  params = list(
-    path_config_json = paste0(mywd, "/trapdiff-debug/config.json"),
-    biotypes_filter = "protein_coding",
-    counts_min = 30,
-    save_rds = TRUE,
-    save_excel = TRUE,
-    counts = trapdiff::get_test_counts_marta() %>%
-      # Add empty columns to check if detection of these work
-      dplyr::mutate(
-        debug_sample_1 = 1,
-        debug_sample_2 = 2
-      )
-  )
-)
-----
-
 Anna's data
 
 [source,r]
 ----
 mywd <- getwd()
 counts_data <- "/beegfs/scratch/bruening_scratch/pklemm/2017-10-anna7-ribotrap/nfcore-rnaseq-analysis/results/salmon/salmon_merged_gene_counts.csv" %>%
+tpms_data <- "/beegfs/scratch/bruening_scratch/pklemm/2017-10-anna7-ribotrap/nfcore-rnaseq-analysis/results/salmon/salmon_merged_gene_tpms.csv" %>%
   readr::read_csv() %>%
   dplyr::rename(ensembl_gene_id = gene_id)
 xaringan::infinite_moon_reader(
@@ -161,7 +144,8 @@ xaringan::infinite_moon_reader(
     counts_min = 30,
     save_rds = TRUE,
     save_excel = TRUE,
-    counts = counts_data
+    counts = counts_data,
+    tpms = tpms_data
   )
 )
 ----
@@ -172,6 +156,7 @@ Yiyi's data
 ----
 mywd <- getwd()
 counts_data <- "/beegfs/scratch/bruening_scratch/pklemm/2020-05-yiyi-bactrap/nfcore-rnaseq-pipeline/results/salmon/salmon_merged_gene_counts.csv" %>%
+tpms_data <- "/beegfs/scratch/bruening_scratch/pklemm/2020-05-yiyi-bactrap/nfcore-rnaseq-pipeline/results/salmon/salmon_merged_gene_tpms.csv" %>%
   readr::read_csv() %>%
   dplyr::rename(ensembl_gene_id = gene_id)
 
@@ -184,7 +169,8 @@ xaringan::infinite_moon_reader(
     counts_min = 30,
     save_rds = TRUE,
     save_excel = TRUE,
-    counts = counts_data
+    counts = counts_data,
+    counts = tpms_data
   )
 )
 ----
@@ -195,6 +181,7 @@ Alex' bacTRAP data
 ----
 mywd <- getwd()
 counts_data <- "/beegfs/scratch/bruening_scratch/pklemm/2019-02-alex-trap-nfcore/nfcore-rnaseq-pipeline/l10a/results/salmon/salmon_merged_gene_counts.csv" %>%
+tpms_data <- "/beegfs/scratch/bruening_scratch/pklemm/2019-02-alex-trap-nfcore/nfcore-rnaseq-pipeline/l10a/results/salmon/salmon_merged_gene_tpms.csv" %>%
   readr::read_csv() %>%
   dplyr::rename(ensembl_gene_id = gene_id)
 
@@ -208,6 +195,7 @@ xaringan::infinite_moon_reader(
     save_rds = TRUE,
     save_excel = TRUE,
     counts = counts_data
+    tpms = tpms_data
   )
 )
 ----
