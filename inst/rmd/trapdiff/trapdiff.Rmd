@@ -178,7 +178,6 @@ undefined_samples$id %>%
       dplyr::select(-dplyr::contains(na_sample))
   })
 
-
 # Remove undefined samples from col_data
 col_data <- col_data %>%
   dplyr::filter(!is.na(treatment) & !is.na(source))
@@ -189,6 +188,58 @@ counts <- counts %>%
   dplyr::mutate_if(is.double, as.integer)
 
 ```
+
+```{r remove-biotypes}
+
+# Default report message.
+remove_biotypes_report <- "We keep genes of all biotypes."
+# Filter for biotypes of interest
+if (!is.na(rmd_params$biotypes_filter)) {
+  counts <- counts %>%
+    rmyknife::attach_biomart(
+      attributes = "gene_biotype",
+      ensembl_version = rmd_params$ensembl_version,
+      verbose = FALSE
+    ) %>%
+    dplyr::filter(gene_biotype %in% rmd_params$biotypes_filter) %>%
+    # Remove gene_biotype again
+    dplyr::select(-gene_biotype)
+  remove_biotypes_report <-
+    glue::glue("We keep {counts %>% nrow()} genes that are of bioype(s) {rmd_params$biotypes_filter}")
+}
+
+```
+
+```{r update-tpms}
+# We need to calculate the TPMs based on the filtered counts matrix because the library size has changed
+# See https://rna-seqblog.com/rpkm-fpkm-and-tpm-clearly-explained/
+tpms <-
+  counts %>%
+  # Get gene length in KB
+  rmyknife::attach_biomart(
+    attributes = c("start_position", "end_position"),
+    ensembl_version = rmd_params$ensembl_version,
+    verbose = FALSE
+  ) %>%
+  dplyr::mutate(gene_length_kb = end_position - start_position) %>%
+  dplyr::select(-start_position, -end_position) %>%
+  # Make table long format for easier calculations
+  tidyr::pivot_longer(-c(ensembl_gene_id, gene_length_kb), names_to = "sample", values_to = "count") %>%
+  # Divide the read counts by the length of each gene in kilobases. This gives you reads per kilobase (RPK).
+  dplyr::mutate(reads_per_kilobase = count / gene_length_kb) %>%
+  # Count up all the RPK values in a sample and divide this number by 1,000,000. This is your “per million” scaling factor.
+  dplyr::group_by(sample) %>%
+  dplyr::mutate(rpk_scaling_factor = sum(reads_per_kilobase) / 1000000) %>%
+  dplyr::ungroup() %>%
+  # Divide the RPK values by the “per million” scaling factor. This gives you TPM.
+  dplyr::mutate(tpm = reads_per_kilobase / rpk_scaling_factor) %>%
+  # Make it a wide format again
+  dplyr::select(ensembl_gene_id, sample, tpm) %>%
+  tidyr::pivot_wider(names_from = sample, values_from = tpm)
+
+```
+
+`r remove_biotypes_report`
 
 ```{r remove-min-tpms}
 
@@ -225,29 +276,6 @@ counts <- counts %>%
 ```
 
 We keep `r genes_satisfying_min_tpms %>% length()` genes where the mean of gene tpms in one of the groups (`r col_data %>% dplyr::mutate(experimental_group = glue::glue("{source}_{treatment}")) %>% dplyr::select(experimental_group) %>% dplyr::distinct() %>% dplyr::pull()`) a tpm of `r rmd_params$tpms_min` or more.
-
-```{r remove-biotypes}
-
-# Default report message.
-remove_biotypes_report <- "We keep genes of all biotypes."
-# Filter for biotypes of interest
-if (!is.na(rmd_params$biotypes_filter)) {
-  counts <- counts %>%
-    rmyknife::attach_biomart(
-      attributes = "gene_biotype",
-      ensembl_version = rmd_params$ensembl_version,
-      verbose = FALSE
-    ) %>%
-    dplyr::filter(gene_biotype %in% rmd_params$biotypes_filter) %>%
-    # Remove gene_biotype again
-    dplyr::select(-gene_biotype)
-  remove_biotypes_report <-
-    glue::glue("We keep {counts %>% nrow()} genes that are of bioype(s) {rmd_params$biotypes_filter}")
-}
-
-```
-
-`r remove_biotypes_report`
 
 The head of the counts table looks as follows.
 
