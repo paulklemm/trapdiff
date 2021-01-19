@@ -211,7 +211,7 @@ tpms <-
     ensembl_version = rmd_params$ensembl_version,
     verbose = FALSE
   ) %>%
-  dplyr::mutate(gene_length_kb = end_position - start_position) %>%
+  dplyr::mutate(gene_length_kb = abs(end_position - start_position) / 1000) %>%
   dplyr::select(-start_position, -end_position) %>%
   # Make table long format for easier calculations
   tidyr::pivot_longer(-c(ensembl_gene_id, gene_length_kb), names_to = "sample", values_to = "count") %>%
@@ -691,7 +691,7 @@ plot_dat <- dplyr::left_join(
   x = col_data %>%
     dplyr::mutate(group = glue::glue("{source}_{treatment}")) %>%
     dplyr::select(id, group),
-  y = rmd_params$tpms %>%
+  y = tpms %>%
     tidyr::pivot_longer(cols = -ensembl_gene_id, names_to = "sample") %>%
     # Attach variable name
     rmyknife::attach_biomart(
