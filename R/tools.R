@@ -46,7 +46,6 @@ get_test_counts_marta <- function() {
 #' @import magrittr rmarkdown
 #' 
 #' @param counts Counts per sample as dataframe
-#' @param tpms Tpms per sample as dataframe
 #' @param path_config_json Configuration file telling trapdiff group associations
 #' @param out_path Output folder for report and intermediate files
 #' @param biotypes_filter Filter genes for these biotypes
@@ -59,7 +58,6 @@ get_test_counts_marta <- function() {
 #' @param clean_output Clean intermediate rmarkdown render files
 trapdiff <- function(
   counts,
-  tpms,
   path_config_json,
   out_path,
   ensembl_version = 100,
@@ -98,8 +96,7 @@ trapdiff <- function(
       save_excel = save_excel,
       save_figures = save_figures,
       ensembl_version = ensembl_version,
-      counts = counts,
-      tpms = tpms
+      counts = counts
     ),
     # Change the intermediate path to the output to avoid write access errors
     intermediates_dir = out_path,

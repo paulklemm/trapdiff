@@ -6,7 +6,6 @@
 \usage{
 trapdiff(
   counts,
-  tpms,
   path_config_json,
   out_path,
   ensembl_version = 100,
@@ -20,8 +19,6 @@ trapdiff(
 }
 \arguments{
 \item{counts}{Counts per sample as dataframe}
-
-\item{tpms}{Tpms per sample as dataframe}
 
 \item{path_config_json}{Configuration file telling trapdiff group associations}
 

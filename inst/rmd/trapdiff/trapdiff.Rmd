@@ -11,7 +11,6 @@ params:
   path_out: "./"
   path_config_json: ""
   counts: ""
-  tpms: ""
   tpms_min: 0
   padj_cutoff: 0.05
   ensembl_version: 100
@@ -75,7 +74,7 @@ Data dictionary for the output table (see DE genes).
 ```{r show-run-config, paged.print = TRUE}
 # Print settings as table
 print_params <- rmd_params
-rmyknife::print_params(print_params, omit = c("counts", "tpms"))
+rmyknife::print_params(print_params, omit = c("counts"))
 ```
 
 ```{r import-settings}
@@ -166,15 +165,6 @@ counts <- rmd_params$counts
 undefined_samples$id %>%
   purrr::walk(function(na_sample) {
     counts <<- counts %>%
-      dplyr::select(-dplyr::contains(na_sample))
-  })
-# Also remove these samples from the tpm count matrix
-# This will not affect trapdiff in any way, it just causes
-# no confusion when we export the TPMs with trapdiff as well
-tpms <- rmd_params$tpms
-undefined_samples$id %>%
-  purrr::walk(function(na_sample) {
-    tpms <<- tpms %>%
       dplyr::select(-dplyr::contains(na_sample))
   })
 
