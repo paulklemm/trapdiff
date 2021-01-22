@@ -829,7 +829,7 @@ cpm_comparison_plot(sourcea_sourceb_treatmentb, glue::glue(glue::glue("{source_a
 <br>
 <br>
 
-Let's check the DE genes for each effect.
+Let's check the DE genes for each effect (`r nrow(counts)` genes left in the analysis after initial filtering, see "Analysis run" section).
 
 ```{r de-summary-table, warning = FALSE, message = FALSE}
 
@@ -859,6 +859,67 @@ de_wide %>%
   # dplyr::mutate_if(is.numeric, round, 4) %>%
   crosstalk::SharedData$new(~gene_id, group = "Choose a gene") %>%
   rmyknife::dt_datatable()
+```
+
+#### Volcano Plots for each comparison
+
+`x_y_z` is read as comparison of group `x` and `y` in condition `z`.
+
+```{r volcanos}
+plot_volcano <- function(dat, min_padj, min_log2fc, plot_top_n = 10, title = "") {
+  dat %>%
+    # Remove entries that cannot be drawn
+    dplyr::filter(!is.na(padj) & !is.na(log2FoldChange)) %>%
+    ggplot2::ggplot(
+      mapping = ggplot2::aes(
+        x = log2FoldChange,
+        y = -log10(padj),
+        color = ((padj <= min_padj & log2FoldChange >= min_log2fc) | (padj <= min_padj & log2FoldChange <= -min_log2fc)) %>% ifelse(., "significant", "not significant")
+      )
+    ) +
+    ggplot2::geom_point(
+      alpha = 0.3,
+      size = 0.5
+    ) +
+    ggplot2::scale_color_manual(values = c("grey", "blue")) +
+    ggplot2::xlab(expression(log[2](fc))) +
+    ggplot2::ylab(expression(-log[10](adjusted ~ p ~ value))) +
+    ggplot2::labs(colour = "Significance") +
+    ggplot2::theme_minimal() +
+    ggrepel::geom_text_repel(
+      data = . %>%
+        dplyr::arrange(padj) %>%
+        head(plot_top_n),
+      mapping = ggplot2::aes(label = external_gene_name),
+      size = 3
+    ) +
+    ggplot2::geom_hline(
+      yintercept = -log10(min_padj),
+      linetype = "dotted"
+    ) +
+    ggplot2::geom_vline(
+      xintercept = -min_log2fc,
+      linetype = "dotted"
+    ) +
+    ggplot2::geom_vline(
+      xintercept = min_log2fc,
+      linetype = "dotted"
+    ) +
+    ggplot2::ggtitle(title)
+}
+
+de$comparison %>%
+  unique() %>%
+  purrr::walk(function(current_comparison) {
+    de %>%
+      dplyr::filter(comparison == current_comparison) %>%
+      plot_volcano(
+        min_padj = rmd_params$padj_cutoff,
+        min_log2fc = 0,
+        title = current_comparison
+      ) %>%
+      print()
+  })
 ```
 
 ### DE Interaction Gene Plots
