@@ -14,7 +14,8 @@ trapdiff(
   padj_cutoff = 0.05,
   save_rds = TRUE,
   save_excel = TRUE,
-  save_figures = TRUE
+  save_figures = TRUE,
+  deseq_treatments_separately = TRUE
 )
 }
 \arguments{
@@ -38,7 +39,7 @@ trapdiff(
 
 \item{save_figures}{Save output figures as png and pdf in out_path/figures}
 
-\item{clean_output}{Clean intermediate rmarkdown render files}
+\item{deseq_treatments_separately}{Create sizeFactor estimates separately for each treatment condition}
 }
 \description{
 Run trapdiff and save report file

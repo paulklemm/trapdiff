@@ -16,6 +16,7 @@ params:
   ensembl_version: 100
   biotypes_filter: !r NA
   save_figures: TRUE
+  deseq_treatments_separately: TRUE
   save_excel: FALSE
   save_rds: FALSE
 ---
@@ -328,6 +329,54 @@ tibble::tibble(
 
 ```{r run-deseq2}
 
+# Test Size factor estimation individually by treatment (IP or Input)
+col_data_treatment_a <- dplyr::filter(col_data, treatment %in% treatment_a[[1]])
+col_data_treatment_b <- dplyr::filter(col_data, treatment %in% treatment_b[[1]])
+
+treatment_a_sizeFactor <-
+  DESeq2::DESeqDataSetFromMatrix(
+    countData =
+      counts %>%
+        # Select columns of treatment condition
+        dplyr::select(ensembl_gene_id, col_data_treatment_a %>% .$id) %>%
+        as.data.frame(),
+    colData = col_data_treatment_a,
+    design = ~ source,
+    tidy = TRUE
+  ) %>%
+  DESeq2::estimateSizeFactors() %>%
+  .$sizeFactor
+
+treatment_b_sizeFactor <-
+  DESeq2::DESeqDataSetFromMatrix(
+    countData =
+      counts %>%
+        # Select columns of treatment condition
+        dplyr::select(ensembl_gene_id, col_data_treatment_b %>% .$id) %>%
+        as.data.frame(),
+    colData = col_data_treatment_b,
+    design = ~ source,
+    tidy = TRUE
+  ) %>%
+  DESeq2::estimateSizeFactors() %>%
+  .$sizeFactor
+
+# We need to make sure to have sizeFactor vector in correct order
+size_factors <-
+  col_data %>%
+  # Left join with col_data to have to correct order
+  dplyr::left_join(
+    dplyr::bind_rows(
+      # Create tibbles from named vectors
+      tibble::enframe(treatment_a_sizeFactor, name = "id", value = "sizeFactor"),
+      tibble::enframe(treatment_b_sizeFactor, name = "id", value = "sizeFactor")
+    ),
+    by = "id"
+  ) %>%
+  dplyr::select(id, sizeFactor) %>%
+  # Convert back to named vector
+  tibble::deframe()
+
 deseq_data <- DESeq2::DESeqDataSetFromMatrix(
   countData = counts %>% as.data.frame(),
   colData = col_data,
@@ -335,7 +384,20 @@ deseq_data <- DESeq2::DESeqDataSetFromMatrix(
   tidy = TRUE
 )
 
-deseq_result <- DESeq2::DESeq(deseq_data)
+if (rmd_params$deseq_treatments_separately) {
+  # Now we run DESeq2 manually. See https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#wald-test-individual-steps
+  deseq_result <-
+    deseq_data %>%
+    (function(dds) {
+      DESeq2::sizeFactors(dds) = size_factors
+      return(dds)
+    }) %>%
+    DESeq2::estimateDispersions() %>%
+    DESeq2::nbinomWaldTest()
+} else {
+  # This is the "old" call of DESeq2 that calculates size-factors on all samples
+  deseq_result <- DESeq2::DESeq(deseq_data)
+}
 
 # Create DESeq2 data for source groups separately to be able to
 # plot the PCA for these groups individually
@@ -633,6 +695,139 @@ if (rmd_params$save_excel) {
 ```
 
 ### Differentially Expressed (DE) Genes
+
+<details>
+<summary>
+Debug: Correlate CPM log2FoldChange with DESeq2 log2FoldChange
+</summary>
+
+When we compare IP vs Input, the tissues can vastly differ.
+DESeq2, when calculating size factors, creates reference samples and uses these to normalize counts.
+With vastly different samples, this can skew the analysis.
+Trapdiff by default enables calculating size-factors for treatment variables `r treatment_a` and `r treatment_b` individually.
+To check if that works correctly, we relate the fold-changes calculated by DESeq2 with fold-changes calculated on CPMs (gene counts normalized by library size).
+
+We want to see plots that correlate and where the center crosses coordinate 0, 0.
+Values far off from that indicate a problem.
+
+```{r plot-cpmfc-deseq-fc, , warning = FALSE, message = FALSE}
+cpms <-
+  counts %>%
+  tidyr::pivot_longer(-ensembl_gene_id, names_to = "sample", values_to = "count") %>%
+  dplyr::left_join(col_data, by = c("sample" = "id")) %>%
+  # Add total number of reads per sample
+  dplyr::group_by(sample) %>%
+  dplyr::mutate(total_sample_count = sum(count)) %>%
+  dplyr::ungroup() %>%
+  # Calculate CPM
+  dplyr::mutate(cpm = (count / total_sample_count) * 1000000) %>%
+  dplyr::select(-total_sample_count)
+
+# {treatment_a}_{treatment_b}_{source_a}
+# Comparison
+treatmenta_treatmentb_sourcea <-
+  dplyr::left_join(
+    x = de %>%
+      dplyr::filter(comparison == glue::glue("{treatment_a}_{treatment_b}_{source_a}")),
+    y = cpms %>%
+      dplyr::filter(source == source_a) %>%
+      dplyr::group_by(ensembl_gene_id, treatment) %>%
+      dplyr::summarise(mean_cpm = mean(cpm)) %>%
+      tidyr::pivot_wider(names_from = treatment, values_from = mean_cpm) %>%
+      dplyr::mutate(cpm_log2FoldChange = log2(get(treatment_a) / get(treatment_b))) %>%
+      dplyr::select(ensembl_gene_id, cpm_log2FoldChange),
+    by = "ensembl_gene_id"
+  )
+
+# {treatment_a}_{treatment_b}_{source_b}
+treatmenta_treatmentb_sourceb <-
+  dplyr::left_join(
+    x = de %>%
+      dplyr::filter(comparison == glue::glue("{treatment_a}_{treatment_b}_{source_b}")),
+    y = cpms %>%
+      dplyr::filter(source == source_b) %>%
+      dplyr::group_by(ensembl_gene_id, treatment) %>%
+      dplyr::summarise(mean_cpm = mean(cpm)) %>%
+      tidyr::pivot_wider(names_from = treatment, values_from = mean_cpm) %>%
+      dplyr::mutate(cpm_log2FoldChange = log2(get(treatment_a) / get(treatment_b))) %>%
+      dplyr::select(ensembl_gene_id, cpm_log2FoldChange),
+    by = "ensembl_gene_id"
+  )
+
+# {source_a}_{source_b}_{treatment_a}
+sourcea_sourceb_treatmenta <-
+  dplyr::left_join(
+    x = de %>%
+      dplyr::filter(comparison == glue::glue("{source_a}_{source_b}_{treatment_a}")),
+    y = cpms %>%
+      dplyr::filter(treatment == treatment_a) %>%
+      dplyr::group_by(ensembl_gene_id, source) %>%
+      dplyr::summarise(mean_cpm = mean(cpm)) %>%
+      tidyr::pivot_wider(names_from = source, values_from = mean_cpm) %>%
+      dplyr::mutate(cpm_log2FoldChange = log2(get(source_a) / get(source_b))) %>%
+      dplyr::select(ensembl_gene_id, cpm_log2FoldChange),
+    by = "ensembl_gene_id"
+  )
+
+# {source_a}_{source_b}_{treatment_b}
+sourcea_sourceb_treatmentb <-
+  dplyr::left_join(
+    x = de %>%
+      dplyr::filter(comparison == glue::glue("{source_a}_{source_b}_{treatment_b}")),
+    y = cpms %>%
+      dplyr::filter(treatment == treatment_b) %>%
+      dplyr::group_by(ensembl_gene_id, source) %>%
+      dplyr::summarise(mean_cpm = mean(cpm)) %>%
+      tidyr::pivot_wider(names_from = source, values_from = mean_cpm) %>%
+      dplyr::mutate(cpm_log2FoldChange = log2(get(source_a) / get(source_b))) %>%
+      dplyr::select(ensembl_gene_id, cpm_log2FoldChange),
+    by = "ensembl_gene_id"
+  )
+
+#' Scatterplot for mapping log2FoldChange against CPM log2FoldChange
+cpm_comparison_plot <- function(dat, title) {
+  ggplot2::ggplot(
+    data = dat,
+    mapping = ggplot2::aes(
+      x = log2FoldChange,
+      y = cpm_log2FoldChange,
+      color = padj <= rmd_params$padj_cutoff
+    )
+  ) +
+    ggplot2::geom_point() +
+    ggplot2::ggtitle(title) +
+    ggplot2::geom_hline(
+      yintercept = 0,
+      linetype = "dotted"
+    ) +
+    ggplot2::geom_vline(
+      xintercept = 0,
+      linetype = "dotted"
+    )
+}
+
+cpm_comparison_plot(treatmenta_treatmentb_sourcea, glue::glue(glue::glue("{treatment_a} vs {treatment_b} in {source_a}")))
+cpm_comparison_plot(treatmenta_treatmentb_sourcea, glue::glue(glue::glue("{treatment_a} vs {treatment_b} in {source_a} (Zoom)"))) +
+  ggplot2::xlim(-1, 1) +
+  ggplot2::ylim(-1, 1)
+cpm_comparison_plot(treatmenta_treatmentb_sourceb, glue::glue(glue::glue("{treatment_a} vs {treatment_b} in {source_b}")))
+cpm_comparison_plot(treatmenta_treatmentb_sourceb, glue::glue(glue::glue("{treatment_a} vs {treatment_b} in {source_b} (Zoom)"))) +
+  ggplot2::xlim(-1, 1) +
+  ggplot2::ylim(-1, 1)
+cpm_comparison_plot(sourcea_sourceb_treatmenta, glue::glue(glue::glue("{source_a}_{source_b}_{treatment_a}")))
+cpm_comparison_plot(sourcea_sourceb_treatmenta, glue::glue(glue::glue("{source_a}_{source_b}_{treatment_a} (Zoom)"))) +
+  ggplot2::xlim(-1, 1) +
+  ggplot2::ylim(-1, 1)
+cpm_comparison_plot(sourcea_sourceb_treatmentb, glue::glue(glue::glue("{source_a}_{source_b}_{treatment_b}")))
+cpm_comparison_plot(sourcea_sourceb_treatmentb, glue::glue(glue::glue("{source_a}_{source_b}_{treatment_b} (Zoom)"))) +
+  ggplot2::xlim(-1, 1) +
+  ggplot2::ylim(-1, 1)
+```
+
+</details>
+
+<br>
+<br>
 
 Let's check the DE genes for each effect.
 
