@@ -27,4 +27,6 @@ Imports:
     tibble,
     DESeq2,
     ggplot2,
-    ggrepel
+    ggrepel,
+    infer,
+    furrr
