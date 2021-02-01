@@ -78,6 +78,7 @@ We define our experiment using a JSON file.
       "hfd4_input"
     ]
   },
+  "normalization": "treatment",
   "treatment_comparison": [
     "ip",
     "input"
