@@ -1,6 +1,6 @@
 Package: trapdiff
 Title: Differential Gene Expression for bacTRAP/riboTRAP data based on DESeq2
-Version: 0.2.3
+Version: 0.2.4
 Authors@R: 
     person(given = "Paul",
            family = "Klemm",
