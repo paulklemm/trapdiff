@@ -969,7 +969,7 @@ t_test_result %>%
     min_padj = rmd_params$padj_cutoff,
     min_log2fc = 0,
     plot_top_n = 10,
-    title = glue::glue("Foldchanges derived from library-size normalized counts compared using t-test comparins ({comp_a_variable} vs {comp_b_variable})")
+    title = glue::glue("Fold-changes derived from library-size normalized counts compared using t-test ({comp_a_variable} vs {comp_b_variable})")
   ) +
     ggplot2::ylab(expression(-log[10](p ~ value)))
 
