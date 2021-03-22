@@ -393,13 +393,15 @@ tibble::tibble(
 # Test Size factor estimation individually by treatment (IP or Input)
 col_data_treatment_a <- dplyr::filter(col_data, treatment %in% treatment_a[[1]])
 col_data_treatment_b <- dplyr::filter(col_data, treatment %in% treatment_b[[1]])
+col_data_source_a <- dplyr::filter(col_data, source %in% source_a[[1]])
+col_data_source_b <- dplyr::filter(col_data, source %in% source_b[[1]])
 
 treatment_a_sizeFactor <-
   DESeq2::DESeqDataSetFromMatrix(
     countData =
       counts %>%
         # Select columns of treatment condition
-        dplyr::select(ensembl_gene_id, col_data_treatment_a %>% .$id) %>%
+        dplyr::select(ensembl_gene_id, col_data_treatment_a$id) %>%
         as.data.frame(),
     colData = col_data_treatment_a,
     design = ~ source,
@@ -413,7 +415,7 @@ treatment_b_sizeFactor <-
     countData =
       counts %>%
         # Select columns of treatment condition
-        dplyr::select(ensembl_gene_id, col_data_treatment_b %>% .$id) %>%
+        dplyr::select(ensembl_gene_id, col_data_treatment_b$id) %>%
         as.data.frame(),
     colData = col_data_treatment_b,
     design = ~ source,
@@ -445,6 +447,71 @@ deseq_data <- DESeq2::DESeqDataSetFromMatrix(
   tidy = TRUE
 )
 
+# Debug Plot
+DESeq2::DESeqDataSetFromMatrix(
+  countData =
+    counts %>%
+      # Select columns of treatment condition
+      dplyr::select(ensembl_gene_id, col_data_treatment_a$id) %>%
+      as.data.frame(),
+  colData = col_data_treatment_a,
+  design = ~ source,
+  tidy = TRUE
+) %>%
+  DESeq2::DESeq() %>%
+  DESeq2::results(
+    tidy = TRUE,
+    # Define which group we want to extract
+    contrast = c("source", col_data$source %>% levels())
+  ) %>%
+  tibble::as_tibble() %>%
+  dplyr::select(row, padj, log2FoldChange) %>%
+  dplyr::rename(ensembl_gene_id = row) %>%
+  dplyr::filter(!is.na(padj)) %>%
+  rmyknife::attach_biomart(attributes = "external_gene_name", ensembl_version = rmd_params$ensembl_version) %>%
+  plot_volcano(
+    min_padj = rmd_params$padj_cutoff,
+    min_log2fc = 0,
+    plot_top_n = 10,
+    title = glue::glue("DESeq2 Model of {col_data$source %>% levels() %>% .[1]} vs {col_data$source %>% levels() %>% .[2]} in treatment a ({col_data$treatment %>% levels() %>% .[1]})")
+  )
+
+# Debug Plot
+DESeq2::DESeqDataSetFromMatrix(
+  countData =
+    counts %>%
+      # Select columns of treatment condition
+      dplyr::select(ensembl_gene_id, col_data_treatment_b$id) %>%
+      as.data.frame(),
+  colData = col_data_treatment_b,
+  design = ~ source,
+  tidy = TRUE
+) %>%
+  DESeq2::DESeq() %>%
+  DESeq2::results(
+    tidy = TRUE,
+    # Define which group we want to extract
+    contrast = c("source", col_data$source %>% levels())
+  ) %>%
+  tibble::as_tibble() %>%
+  dplyr::select(row, padj, log2FoldChange) %>%
+  dplyr::rename(ensembl_gene_id = row) %>%
+  dplyr::filter(!is.na(padj)) %>%
+  rmyknife::attach_biomart(attributes = "external_gene_name", ensembl_version = rmd_params$ensembl_version) %>%
+  plot_volcano(
+    min_padj = rmd_params$padj_cutoff,
+    min_log2fc = 0,
+    plot_top_n = 10,
+    title = glue::glue("DESeq2 Model of {col_data$source %>% levels() %>% .[1]} vs {col_data$source %>% levels() %>% .[2]} in treatment a ({col_data$treatment %>% levels() %>% .[2]})")
+  )
+
+# Here we create the DESeq2 objects that are used to create the contrasts.
+# We are using a DESeq2 object that contain treatment and source to be able to
+# get the interaction effects from the model.
+# Additionally, we create a DESeq2 model for source and treatment
+# separately to not have the source or treatment levels interfering with the
+# size factor estimation.
+
 if (rmd_params$deseq_treatments_separately) {
   # Now we run DESeq2 manually. See https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#wald-test-individual-steps
   deseq_result <-
@@ -459,6 +526,58 @@ if (rmd_params$deseq_treatments_separately) {
   # This is the "old" call of DESeq2 that calculates size-factors on all samples
   deseq_result <- DESeq2::DESeq(deseq_data)
 }
+
+deseq_source_effect_a <-
+  DESeq2::DESeqDataSetFromMatrix(
+  countData =
+    counts %>%
+      # Select columns of treatment condition
+      dplyr::select(ensembl_gene_id, col_data_treatment_a$id) %>%
+      as.data.frame(),
+  colData = col_data_treatment_a,
+  design = ~ source,
+  tidy = TRUE
+) %>%
+  DESeq2::DESeq()
+
+deseq_source_effect_b <-
+  DESeq2::DESeqDataSetFromMatrix(
+  countData =
+    counts %>%
+      # Select columns of treatment condition
+      dplyr::select(ensembl_gene_id, col_data_treatment_b$id) %>%
+      as.data.frame(),
+  colData = col_data_treatment_b,
+  design = ~ source,
+  tidy = TRUE
+) %>%
+  DESeq2::DESeq()
+
+deseq_main_effect_a <-
+  DESeq2::DESeqDataSetFromMatrix(
+  countData =
+    counts %>%
+      # Select columns of source condition
+      dplyr::select(ensembl_gene_id, col_data_source_a$id) %>%
+      as.data.frame(),
+  colData = col_data_source_a,
+  design = ~ treatment,
+  tidy = TRUE
+) %>%
+  DESeq2::DESeq()
+
+deseq_main_effect_b <-
+  DESeq2::DESeqDataSetFromMatrix(
+  countData =
+    counts %>%
+      # Select columns of source condition
+      dplyr::select(ensembl_gene_id, col_data_source_b$id) %>%
+      as.data.frame(),
+  colData = col_data_source_b,
+  design = ~ treatment,
+  tidy = TRUE
+) %>%
+  DESeq2::DESeq()
 
 # Create DESeq2 data for source groups separately to be able to
 # plot the PCA for these groups individually
@@ -617,25 +736,23 @@ deseq_results_treatment %>%
       print()
   })
 
-
 ```
 
 ```{r get-contrasts, message = FALSE}
-# This works at the moment only for two treatment groups
-main_effect_a <- DESeq2::results(
-  object = deseq_result,
-  contrast = c("treatment", col_data$treatment %>% levels())
-) %>%
+# This works at the moment only for two treatment and source groups
+main_effect_a <-
+  DESeq2::results(
+    object = deseq_main_effect_a,
+    contrast = c("treatment", col_data$treatment %>% levels())
+  ) %>%
   rmyknife::deseq2_result_to_tibble()
 
 main_effect_b <-
   DESeq2::results(
-    object = deseq_result,
-    contrast = list(DESeq2::resultsNames(deseq_result)[3:4])
+    object = deseq_main_effect_b,
+    contrast = c("treatment", col_data$treatment %>% levels())
   ) %>%
-  rmyknife::deseq2_result_to_tibble() %>%
-  # This effect needs to be inverted
-  dplyr::mutate(log2FoldChange = log2FoldChange * -1)
+  rmyknife::deseq2_result_to_tibble()
 
 interaction_effect <-
   DESeq2::results(
@@ -644,28 +761,19 @@ interaction_effect <-
   ) %>%
   rmyknife::deseq2_result_to_tibble()
 
-source_effect_a <- DESeq2::results(
-  object = deseq_result,
-  contrast = c("source", col_data$source %>% levels())
-) %>%
+source_effect_a <-
+  DESeq2::results(
+    object = deseq_source_effect_a,
+    contrast = c("source", col_data$source %>% levels())
+  ) %>%
   rmyknife::deseq2_result_to_tibble()
 
-source_effect_b <- DESeq2::results(
-  object = deseq_result,
-  contrast = list(c(
-    DESeq2::resultsNames(deseq_result)[2],
-    DESeq2::resultsNames(deseq_result)[4]
-  ))
-) %>%
-  rmyknife::deseq2_result_to_tibble() %>%
-  # This effect needs to be inverted
-  dplyr::mutate(log2FoldChange = log2FoldChange * -1)
-
-# source_effect <- DESeq2::results(
-#   object = deseq_result,
-#   contrast = c("source", col_data$source %>% levels())
-# ) %>%
-#   rmyknife::deseq2_result_to_tibble()
+source_effect_b <-
+  DESeq2::results(
+    object = deseq_source_effect_b,
+    contrast = c("source", col_data$source %>% levels())
+  ) %>%
+  rmyknife::deseq2_result_to_tibble()
 
 select_join <- function(dat) {
   dplyr::select(dat, ensembl_gene_id, log2FoldChange, padj)
