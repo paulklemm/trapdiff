@@ -131,7 +131,7 @@ Here is what you should do.
 
 1. Check the PCA's if the samples cluster properly for your *source* and *treatment* condition.
 2. Check your differentially expressed genes
-3. Check the TPMs for the DE genes of the interaction term eiter in **DE Interaction Gene Plots** or in the interactive shiny app
+3. Check the CPMs for the DE genes of the interaction term in the **DE Interaction Gene Plots**
 
 Data dictionary for the output table (see DE genes).
 
@@ -143,7 +143,7 @@ Data dictionary for the output table (see DE genes).
 | `log2FoldChange_x_y_z`              | [DESeq2](https://doi.org/10.1186/s13059-014-0550-8) - effect size estimate between group `x` and `y` in condition `z`. A log2 fold change of 1.5 means the gene expression is increased by 2^1.5 = 2.82.. Comparison of group x vs y in condition z. |
 | `log2FoldChange_interaction_effect` | [DESeq2](https://doi.org/10.1186/s13059-014-0550-8) - effect size estimate of the `interaction effect`.                                                                                                                                              |
 
-## {.tabset}
+## Trapdiff {.tabset}
 
 ### Analysis Run
 
@@ -352,7 +352,6 @@ We keep `r genes_satisfying_min_tpms %>% length()` genes where the mean of gene 
 The head of the counts table looks as follows.
 
 ```{r print_top_entries}
-
 counts %>%
   head() %>%
   rmarkdown::paged_table()
@@ -361,7 +360,6 @@ counts %>%
 The head of the tpm table looks as follows. This table is only used for filtering gene minimum expression as well as for visualization later on.
 
 ```{r print_top_entries_tpms}
-
 tpms %>%
   head() %>%
   rmarkdown::paged_table()
@@ -370,9 +368,7 @@ tpms %>%
 The sample group assignment table is defined as follows:
 
 ```{r print_design_table}
-
 knitr::kable(col_data)
-
 ```
 
 </details>
@@ -514,12 +510,9 @@ size_factors_split <-
     col_data = col_data
   )
 
-# Here we create the DESeq2 objects that are used to create the contrasts.
-# We are using a DESeq2 object that contain treatment and source to be able to
-# get the interaction effects from the model.
-# Additionally, we create a DESeq2 model for source and treatment
-# separately to not have the source or treatment levels interfering with the
-# size factor estimation.
+#' Helper function that either runs DESeq2 step by step by spliting the sizeFactor estimation
+#' using the split variables defined in the parameters.
+#' Alternatively, it runs standard DESeq2.
 deseq_helper <- function(deseq_dat, col_dat) {
   # col_dat <- col_data_source_a
   if (rmd_params$deseq_split_size_factors) {
@@ -549,7 +542,12 @@ deseq_helper <- function(deseq_dat, col_dat) {
   }
 }
 
-# Create DESeq2 model containing the interaction term
+# Here we create the DESeq2 objects that are used to create the contrasts.
+# We are using a DESeq2 object that contain treatment and source to be able to
+# get the interaction effects from the model.
+# Additionally, we create a DESeq2 model for source and treatment
+# separately to not have the source or treatment levels interfering with the
+# size factor estimation.
 deseq_data <- DESeq2::DESeqDataSetFromMatrix(
   countData = counts %>% as.data.frame(),
   colData = col_data,
@@ -717,9 +715,9 @@ pca_plot <- function(dat, title = "") {
   dat %>%
     ggplot2::ggplot(ggplot2::aes(x = PC1, y = PC2, label = name, colour = group)) +
     ggplot2::geom_point() +
-    ggplot2::ggtitle(paste0("PCA ", title)) +
-    ggplot2::xlab(paste0("Principal Component 1 (", round(attr(dat, "percentVar")[1] * 100), "% variance explained)")) +
-    ggplot2::ylab(paste0("Principal Component 2 (", round(attr(dat, "percentVar")[2] * 100), "% variance explained)")) +
+    ggplot2::ggtitle(glue::glue("PCA {title}")) +
+    ggplot2::xlab(glue::glue("Principal Component 1 ({round(attr(dat, 'percentVar')[1] * 100)}% variance explained)")) +
+    ggplot2::ylab(glue::glue("Principal Component 2 ({round(attr(dat, 'percentVar')[2] * 100)}% variance explained)")) +
     ggplot2::theme_minimal() +
     ggrepel::geom_text_repel()
 }
