@@ -10,7 +10,7 @@ trapdiff(
   out_path,
   ensembl_version = 100,
   biotypes_filter = "protein_coding",
-  tpms_min = 5,
+  tpms_min = 1,
   padj_cutoff = 0.05,
   save_rds = TRUE,
   save_excel = TRUE,
