@@ -15,7 +15,8 @@ trapdiff(
   save_rds = TRUE,
   save_excel = TRUE,
   save_figures = TRUE,
-  deseq_treatments_separately = TRUE
+  deseq_split_size_factors = FALSE,
+  splits = "treatment"
 )
 }
 \arguments{
@@ -39,7 +40,9 @@ trapdiff(
 
 \item{save_figures}{Save output figures as png and pdf in out_path/figures}
 
-\item{deseq_treatments_separately}{Create sizeFactor estimates separately for each treatment condition}
+\item{deseq_split_size_factors}{Create sizeFactor estimates separately for each split condition}
+
+\item{splits}{If deseq_split_size_factors is set to true, sizeFactors are calculated for these groups separately}
 }
 \description{
 Run trapdiff and save report file

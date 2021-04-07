@@ -55,7 +55,8 @@ get_test_counts_marta <- function() {
 #' @param save_excel Save Excel sheets of results
 #' @param save_figures Save output figures as png and pdf in out_path/figures
 #' @param ensembl_version Ensembl version used for attaching biomart variables
-#' @param deseq_treatments_separately Create sizeFactor estimates separately for each treatment condition
+#' @param deseq_split_size_factors Create sizeFactor estimates separately for each split condition
+#' @param splits If deseq_split_size_factors is set to true, sizeFactors are calculated for these groups separately
 trapdiff <- function(
   counts,
   path_config_json,
@@ -67,7 +68,8 @@ trapdiff <- function(
   save_rds = TRUE,
   save_excel = TRUE,
   save_figures = TRUE,
-  deseq_treatments_separately = TRUE
+  deseq_split_size_factors = FALSE,
+  splits = "treatment"
 ) {
   # Be sure the output path exists
   if (!dir.exists(out_path)) {
@@ -98,7 +100,8 @@ trapdiff <- function(
       save_figures = save_figures,
       ensembl_version = ensembl_version,
       counts = counts,
-      deseq_treatments_separately = deseq_treatments_separately
+      deseq_split_size_factors = deseq_split_size_factors,
+      splits = splits
     ),
     # Change the intermediate path to the output to avoid write access errors
     intermediates_dir = out_path,

@@ -16,9 +16,10 @@ params:
   ensembl_version: 100
   biotypes_filter: !r NA
   save_figures: TRUE
-  deseq_treatments_separately: TRUE
+  deseq_split_size_factors: FALSE
   save_excel: FALSE
   save_rds: FALSE
+  splits: !r c("treatment", "source")
 ---
 
 ```{r setup, results = "hide", message = FALSE, warning = FALSE}
@@ -48,6 +49,25 @@ if (rmd_params$save_figures) {
 future::plan(
   future::multicore,
   workers = future::availableCores()
+)
+
+# Set Theme options
+ggplot2::theme_set(
+  ggplot2::theme_minimal(
+    base_size = 12
+    # base_family = "Open Sans"
+  )
+)
+ggplot2::theme_update(
+  axis.ticks = ggplot2::element_line(color = "grey92"),
+  axis.ticks.length = ggplot2::unit(.5, "lines"),
+  panel.grid.minor = ggplot2::element_blank(),
+  legend.title = ggplot2::element_text(size = 12),
+  legend.text = ggplot2::element_text(color = "grey30"),
+  plot.title = ggplot2::element_text(size = 18, face = "bold"),
+  plot.subtitle = ggplot2::element_text(size = 12, color = "grey30"),
+  plot.caption = ggplot2::element_text(size = 9, margin = ggplot2::margin(t = 15)),
+  plot.title.position = 'plot'
 )
 ```
 
@@ -129,14 +149,14 @@ Data dictionary for the output table (see DE genes).
 
 #### Configuration
 
-<details>
-<summary>Show configuration</summary>
-
 ```{r show-run-config, paged.print = TRUE}
 # Print settings as table
 print_params <- rmd_params
 rmyknife::print_params(print_params, omit = c("counts"))
 ```
+
+<details>
+<summary>DESeq2 Settings</summary>
 
 ```{r import-settings}
 
@@ -396,56 +416,103 @@ col_data_treatment_b <- dplyr::filter(col_data, treatment %in% treatment_b[[1]])
 col_data_source_a <- dplyr::filter(col_data, source %in% source_a[[1]])
 col_data_source_b <- dplyr::filter(col_data, source %in% source_b[[1]])
 
-treatment_a_sizeFactor <-
-  DESeq2::DESeqDataSetFromMatrix(
-    countData =
-      counts %>%
-        # Select columns of treatment condition
-        dplyr::select(ensembl_gene_id, col_data_treatment_a$id) %>%
-        as.data.frame(),
-    colData = col_data_treatment_a,
-    design = ~ source,
-    tidy = TRUE
-  ) %>%
-  DESeq2::estimateSizeFactors() %>%
-  .$sizeFactor
-
-treatment_b_sizeFactor <-
-  DESeq2::DESeqDataSetFromMatrix(
-    countData =
-      counts %>%
-        # Select columns of treatment condition
-        dplyr::select(ensembl_gene_id, col_data_treatment_b$id) %>%
-        as.data.frame(),
-    colData = col_data_treatment_b,
-    design = ~ source,
-    tidy = TRUE
-  ) %>%
-  DESeq2::estimateSizeFactors() %>%
-  .$sizeFactor
-
-# We need to make sure to have sizeFactor vector in correct order
-size_factors <-
+#' Function splits col_data by split_column and runs DESeq2 separately to retreive size factors
+#' @param counts Raw counts for use in DESeq2
+#' @param split_column Either "source" or "treatment"
+#' @param col_data col_data object that will be split based on split_column
+#' @examples
+#'   # If treatment encodes IP/Input, it will run DESeq2 on IP/Input samples separately
+#'   get_size_factors(counts, split_column = "treatment", col_data = col_data)
+get_size_factors <- function(counts, split_column, col_data) {
+  # split_column <- "source"
+  # split_column <- "treatment"
+  sizefactors <-
+    col_data[split_column][[1]] %>%
+    levels() %>%
+    # Get size factors for each level separately
+    purrr::map(
+      function(level) {
+        # level <- "input"
+        # level <- "fasted"
+        # Filter col_data for the current level
+        my_col_data <-
+          col_data %>%
+          dplyr::filter(get(!!split_column) == level)
+        # Create DESeq2 object for current level
+        DESeq2::DESeqDataSetFromMatrix(
+          countData =
+            counts %>%
+              # Select columns of treatment condition
+              dplyr::select(ensembl_gene_id, my_col_data$id) %>%
+              as.data.frame(),
+          colData = my_col_data,
+          design = ~ 1,
+          tidy = TRUE
+        ) %>%
+        # Extract size factors from DESeq2 model
+        DESeq2::estimateSizeFactors() %>%
+        .$sizeFactor %>%
+        tibble::enframe(name = "id", value = "sizeFactor")
+    }) %>%
+    dplyr::bind_rows()
+  # Left join with col_data to maintain the correct order
   col_data %>%
-  # Left join with col_data to have to correct order
-  dplyr::left_join(
-    dplyr::bind_rows(
-      # Create tibbles from named vectors
-      tibble::enframe(treatment_a_sizeFactor, name = "id", value = "sizeFactor"),
-      tibble::enframe(treatment_b_sizeFactor, name = "id", value = "sizeFactor")
-    ),
-    by = "id"
-  ) %>%
-  dplyr::select(id, sizeFactor) %>%
-  # Convert back to named vector
-  tibble::deframe()
+    dplyr::left_join(
+      sizefactors,
+      by = "id"
+    ) %>%
+    dplyr::select(id, sizeFactor)
+}
 
-deseq_data <- DESeq2::DESeqDataSetFromMatrix(
-  countData = counts %>% as.data.frame(),
-  colData = col_data,
-  design = ~ source + treatment + source:treatment,
-  tidy = TRUE
-)
+#' Wrapper for size get_size_factors that checks how many split columns are provided
+#' This allows to split columns based on both treatment and source variable if needed
+#' @param counts Raw count table
+#' @param split_columns Either "source", "treatment", or c("source", "treatment")
+#' @param col_data col_data for DESeq2
+get_size_factors_2 <- function(counts, split_columns, col_data) {
+  # split_columns <- c("source", "treatment")
+  if (length(split_columns) == 1) {
+    get_size_factors(counts, split_columns, col_data) %>%
+      return()
+  } else if (length(split_columns) == 2) {
+    # Iterate over first split column levels, filter col_data for it, and return the result
+    first_split_column <- split_columns[1][[1]]
+    second_split_column <- split_columns[2][[1]]
+    sizefactors <-
+      col_data[first_split_column][[1]] %>%
+      levels() %>%
+      purrr::map(
+        function(split_column_level) {
+          # split_column_level <- "fasted"
+          # Get col_data filtered for split_column_level
+          col_data_split <-
+            col_data %>%
+            dplyr::filter(get(!!first_split_column) == split_column_level)
+          # Run size factor estimation only on this split column level
+          get_size_factors(counts, second_split_column, col_data_split)
+        }
+      ) %>%
+      dplyr::bind_rows()
+    # Use same sorting as col_data
+    col_data %>%
+      dplyr::left_join(
+        sizefactors,
+        by = "id"
+      ) %>%
+      dplyr::select(id, sizeFactor) %>%
+      return()
+  } else (
+    glue::glue("Invalid split variables, {split_columns}") %>%
+      stop()
+  )
+}
+
+size_factors_split <-
+  get_size_factors_2(
+    counts = counts,
+    split_columns = rmd_params$splits,
+    col_data = col_data
+  )
 
 # Debug Plot
 DESeq2::DESeqDataSetFromMatrix(
@@ -511,22 +578,45 @@ DESeq2::DESeqDataSetFromMatrix(
 # Additionally, we create a DESeq2 model for source and treatment
 # separately to not have the source or treatment levels interfering with the
 # size factor estimation.
-
-if (rmd_params$deseq_treatments_separately) {
-  # Now we run DESeq2 manually. See https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#wald-test-individual-steps
-  deseq_result <-
-    deseq_data %>%
-    (function(dds) {
-      DESeq2::sizeFactors(dds) = size_factors
-      return(dds)
-    }) %>%
-    DESeq2::estimateDispersions() %>%
-    DESeq2::nbinomWaldTest()
-} else {
-  # This is the "old" call of DESeq2 that calculates size-factors on all samples
-  deseq_result <- DESeq2::DESeq(deseq_data)
+deseq_helper <- function(deseq_dat, col_dat) {
+  # col_dat <- col_data_source_a
+  if (rmd_params$deseq_split_size_factors) {
+    print("Run DESeq2 with split size factor estimation")
+    # Now we run DESeq2 manually. See https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#wald-test-individual-steps
+    deseq_dat %>%
+      # DESeq2::estimateSizeFactors() %>%
+      (function(dds) {
+        # dds <- deseq_dat
+        # Get size factors
+        DESeq2::sizeFactors(dds) <-
+          # Only select size factor ids required in col_dat
+          col_dat %>%
+          dplyr::left_join(size_factors_split, by = "id") %>%
+          dplyr::select(id, sizeFactor) %>%
+          tibble::deframe()
+        return(dds)
+      }) %>%
+      DESeq2::estimateDispersions() %>%
+      DESeq2::nbinomWaldTest() %>%
+      return()
+  } else {
+    print("Run DESeq2 Standard without split size factor estimation")
+    # This is the "old" call of DESeq2 that calculates size-factors on all samples
+    DESeq2::DESeq(deseq_dat) %>%
+      return()
+  }
 }
 
+# Create DESeq2 model containing the interaction term
+deseq_data <- DESeq2::DESeqDataSetFromMatrix(
+  countData = counts %>% as.data.frame(),
+  colData = col_data,
+  design = ~ source + treatment + source:treatment,
+  tidy = TRUE
+) %>%
+  deseq_helper(col_data)
+
+# Standard DESeq2 models
 deseq_source_effect_a <-
   DESeq2::DESeqDataSetFromMatrix(
   countData =
@@ -538,7 +628,7 @@ deseq_source_effect_a <-
   design = ~ source,
   tidy = TRUE
 ) %>%
-  DESeq2::DESeq()
+  deseq_helper(col_data_treatment_a)
 
 deseq_source_effect_b <-
   DESeq2::DESeqDataSetFromMatrix(
@@ -551,7 +641,7 @@ deseq_source_effect_b <-
   design = ~ source,
   tidy = TRUE
 ) %>%
-  DESeq2::DESeq()
+  deseq_helper(col_data_treatment_b)
 
 deseq_main_effect_a <-
   DESeq2::DESeqDataSetFromMatrix(
@@ -564,7 +654,7 @@ deseq_main_effect_a <-
   design = ~ treatment,
   tidy = TRUE
 ) %>%
-  DESeq2::DESeq()
+  deseq_helper(col_data_source_a)
 
 deseq_main_effect_b <-
   DESeq2::DESeqDataSetFromMatrix(
@@ -577,7 +667,7 @@ deseq_main_effect_b <-
   design = ~ treatment,
   tidy = TRUE
 ) %>%
-  DESeq2::DESeq()
+  deseq_helper(col_data_source_b)
 
 # Create DESeq2 data for source groups separately to be able to
 # plot the PCA for these groups individually
@@ -954,15 +1044,21 @@ sourcea_sourceb_treatmentb <-
 
 #' Scatterplot for mapping log2FoldChange against CPM log2FoldChange
 cpm_comparison_plot <- function(dat, title) {
-  ggplot2::ggplot(
-    data = dat,
+  dat %>%
+    dplyr::filter(!is.na(padj)) %>%
+    ggplot2::ggplot(
     mapping = ggplot2::aes(
       x = log2FoldChange,
       y = cpm_log2FoldChange,
       color = padj <= rmd_params$padj_cutoff
     )
   ) +
-    ggplot2::geom_point() +
+    ggplot2::geom_point(
+      # shape = ".",
+      shape = 19,
+      alpha = 0.3,
+      size = 0.5
+    ) +
     ggplot2::ggtitle(title) +
     ggplot2::geom_hline(
       yintercept = 0,
