@@ -514,64 +514,6 @@ size_factors_split <-
     col_data = col_data
   )
 
-# Debug Plot
-DESeq2::DESeqDataSetFromMatrix(
-  countData =
-    counts %>%
-      # Select columns of treatment condition
-      dplyr::select(ensembl_gene_id, col_data_treatment_a$id) %>%
-      as.data.frame(),
-  colData = col_data_treatment_a,
-  design = ~ source,
-  tidy = TRUE
-) %>%
-  DESeq2::DESeq() %>%
-  DESeq2::results(
-    tidy = TRUE,
-    # Define which group we want to extract
-    contrast = c("source", col_data$source %>% levels())
-  ) %>%
-  tibble::as_tibble() %>%
-  dplyr::select(row, padj, log2FoldChange) %>%
-  dplyr::rename(ensembl_gene_id = row) %>%
-  dplyr::filter(!is.na(padj)) %>%
-  rmyknife::attach_biomart(attributes = "external_gene_name", ensembl_version = rmd_params$ensembl_version) %>%
-  plot_volcano(
-    min_padj = rmd_params$padj_cutoff,
-    min_log2fc = 0,
-    plot_top_n = 10,
-    title = glue::glue("DESeq2 Model of {col_data$source %>% levels() %>% .[1]} vs {col_data$source %>% levels() %>% .[2]} in treatment a ({col_data$treatment %>% levels() %>% .[1]})")
-  )
-
-# Debug Plot
-DESeq2::DESeqDataSetFromMatrix(
-  countData =
-    counts %>%
-      # Select columns of treatment condition
-      dplyr::select(ensembl_gene_id, col_data_treatment_b$id) %>%
-      as.data.frame(),
-  colData = col_data_treatment_b,
-  design = ~ source,
-  tidy = TRUE
-) %>%
-  DESeq2::DESeq() %>%
-  DESeq2::results(
-    tidy = TRUE,
-    # Define which group we want to extract
-    contrast = c("source", col_data$source %>% levels())
-  ) %>%
-  tibble::as_tibble() %>%
-  dplyr::select(row, padj, log2FoldChange) %>%
-  dplyr::rename(ensembl_gene_id = row) %>%
-  dplyr::filter(!is.na(padj)) %>%
-  rmyknife::attach_biomart(attributes = "external_gene_name", ensembl_version = rmd_params$ensembl_version) %>%
-  plot_volcano(
-    min_padj = rmd_params$padj_cutoff,
-    min_log2fc = 0,
-    plot_top_n = 10,
-    title = glue::glue("DESeq2 Model of {col_data$source %>% levels() %>% .[1]} vs {col_data$source %>% levels() %>% .[2]} in treatment a ({col_data$treatment %>% levels() %>% .[2]})")
-  )
-
 # Here we create the DESeq2 objects that are used to create the contrasts.
 # We are using a DESeq2 object that contain treatment and source to be able to
 # get the interaction effects from the model.
