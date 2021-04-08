@@ -57,6 +57,7 @@ get_test_counts_marta <- function() {
 #' @param ensembl_version Ensembl version used for attaching biomart variables
 #' @param deseq_split_size_factors Create sizeFactor estimates separately for each split condition
 #' @param splits If deseq_split_size_factors is set to true, sizeFactors are calculated for these groups separately
+#' @param filter_regex Manually regex out genes. Defaults to all mitochondrial genes starting with "mt-"
 trapdiff <- function(
   counts,
   path_config_json,
@@ -69,7 +70,8 @@ trapdiff <- function(
   save_excel = TRUE,
   save_figures = TRUE,
   deseq_split_size_factors = FALSE,
-  splits = "treatment"
+  splits = "treatment",
+  filter_regex = "^mt-"
 ) {
   # Be sure the output path exists
   if (!dir.exists(out_path)) {
@@ -101,7 +103,8 @@ trapdiff <- function(
       ensembl_version = ensembl_version,
       counts = counts,
       deseq_split_size_factors = deseq_split_size_factors,
-      splits = splits
+      splits = splits,
+      filter_regex = filter_regex
     ),
     # Change the intermediate path to the output to avoid write access errors
     intermediates_dir = out_path,

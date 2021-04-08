@@ -19,6 +19,7 @@ params:
   deseq_split_size_factors: FALSE
   save_excel: FALSE
   save_rds: FALSE
+  filter_regex: "^mt-"
   splits: !r c("treatment", "source")
 ---
 
@@ -341,13 +342,29 @@ genes_satisfying_min_tpms <- tpms %>%
   dplyr::distinct() %>%
   dplyr::pull()
 
-# Here we need to update the counts based on the minimum TPM filter
-counts <- counts %>%
-  dplyr::filter(ensembl_gene_id %in% genes_satisfying_min_tpms)
+genes_regex_filtered <-
+  counts %>%
+  rmyknife::attach_biomart(
+    attributes = "external_gene_name",
+    ensembl_version = rmd_params$ensembl_version
+  ) %>%
+  # dplyr::filter(stringr::str_detect(external_gene_name, rmd_params$filter_regex))
+  dplyr::filter(stringr::str_detect(external_gene_name, "^mt-")) %>%
+  dplyr::select(ensembl_gene_id) %>%
+  dplyr::pull()
+
+counts <-
+  counts %>%
+  # Update the counts based on the minimum TPM filter
+  dplyr::filter(ensembl_gene_id %in% genes_satisfying_min_tpms) %>%
+  # Remove genes that are manually filtered using the regex
+  dplyr::filter(!(ensembl_gene_id %in% genes_regex_filtered))
 
 ```
 
 We keep `r genes_satisfying_min_tpms %>% length()` genes where the mean of gene tpms in one of the groups (`r col_data %>% dplyr::mutate(experimental_group = glue::glue("{source}_{treatment}")) %>% dplyr::select(experimental_group) %>% dplyr::distinct() %>% dplyr::pull()`) a tpm of `r rmd_params$tpms_min` or more.
+
+Additionally, we filter `r genes_regex_filtered %>% length()` genes manually with regex `r rmd_params$filter_regex`.
 
 The head of the counts table looks as follows.
 
@@ -548,7 +565,7 @@ deseq_helper <- function(deseq_dat, col_dat) {
 # Additionally, we create a DESeq2 model for source and treatment
 # separately to not have the source or treatment levels interfering with the
 # size factor estimation.
-deseq_data <- DESeq2::DESeqDataSetFromMatrix(
+deseq_result <- DESeq2::DESeqDataSetFromMatrix(
   countData = counts %>% as.data.frame(),
   colData = col_data,
   design = ~ source + treatment + source:treatment,
