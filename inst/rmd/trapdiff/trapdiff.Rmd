@@ -887,7 +887,7 @@ if (rmd_params$save_rds) {
       ),
     file = glue::glue("{rmd_params$path_out}/counts.rds")
   )
-  # Save Salmon tpms
+  # Save tpms
   saveRDS(
     object = tpms %>%
       tidyr::pivot_longer(cols = -ensembl_gene_id, names_to = "sample") %>%
@@ -898,6 +898,19 @@ if (rmd_params$save_rds) {
         verbose = FALSE
       ),
     file = glue::glue("{rmd_params$path_out}/tpms.rds")
+  )
+  # Save cpms
+  saveRDS(
+    object =
+      cpms %>%
+      # Attach variable name
+      rmyknife::attach_biomart(
+        attributes = "external_gene_name",
+        ensembl_version = rmd_params$ensembl_version,
+        verbose = FALSE
+      ) %>%
+      dplyr::select(ensembl_gene_id, external_gene_name, cpm, dplyr::everything()),
+    file = glue::glue("{rmd_params$path_out}/cpms.rds")
   )
 }
 
