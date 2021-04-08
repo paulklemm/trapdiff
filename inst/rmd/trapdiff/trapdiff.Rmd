@@ -132,7 +132,7 @@ Here is what you should do.
 
 1. Check the PCA's if the samples cluster properly for your *source* and *treatment* condition.
 2. Check your differentially expressed genes
-3. Check the CPMs for the DE genes of the interaction term in the **DE Interaction Gene Plots**
+3. Check the CPMs for the DE genes in the **CPM Gene Plots** section
 
 Data dictionary for the output table (see DE genes).
 
@@ -1328,9 +1328,10 @@ de$comparison %>%
   })
 ```
 
-### DE Interaction Gene Plots
+### CPM Gene Plots
 
-This list only contains genes that are differentially expressed according to the interaction term.
+Select genes of interest in this table to plot their CPM expression values.
+CPM values are normalized by library size, so for a gene we compare the counts between experimental conditions.
 
 Because of a technically limitation, please first select a gene of interest here and then open the plot.
 Otherwise this will drastically slow down your browser.
@@ -1344,7 +1345,9 @@ gene_plot <- function(dat) {
       y = value
     )
   ) +
-    ggplot2::geom_point(position = "jitter")
+    ggplot2::geom_point(position = "jitter") +
+    ggplot2::xlab("Experimental groups") +
+    ggplot2::ylab("CPM")
 }
 
 # Create a tidy long format of tpms
@@ -1371,17 +1374,19 @@ plot_dat <- dplyr::left_join(
   dplyr::mutate(
     gene_id = paste0(ensembl_gene_id, "_", external_gene_name)
   ) %>%
-  # Attach p-value from interaction effect
-  dplyr::left_join(
-    de %>%
-      tidyr::pivot_wider(names_from = comparison, values_from = c(padj, log2FoldChange)) %>%
-      dplyr::select(ensembl_gene_id, padj_interaction_effect),
-    by = "ensembl_gene_id"
-  ) %>%
-  # Filter only for genes with significant interaction effect
-  dplyr::filter(padj_interaction_effect <= rmd_params$padj_cutoff) %>%
-  dplyr::filter(!is.na(padj_interaction_effect)) %>%
-  dplyr::arrange(padj_interaction_effect)
+  # Filter for any gene that is significant
+  dplyr::filter(ensembl_gene_id %in% (de %>% dplyr::filter(padj <= rmd_params$padj_cutoff) %>% .$ensembl_gene_id))
+  # # Attach p-value from interaction effect
+  # dplyr::left_join(
+  #   de %>%
+  #     tidyr::pivot_wider(names_from = comparison, values_from = c(padj, log2FoldChange)) %>%
+  #     dplyr::select(ensembl_gene_id, padj_interaction_effect),
+  #   by = "ensembl_gene_id"
+  # ) %>%
+  # # Filter only for genes with significant interaction effect
+  # dplyr::filter(padj_interaction_effect <= rmd_params$padj_cutoff) %>%
+  # dplyr::filter(!is.na(padj_interaction_effect)) %>%
+  # dplyr::arrange(padj_interaction_effect)
 
 # We have to have at least one differentially expressed gene with the
 # interaction term, otherwise we cannot create the SharedData object.
@@ -1424,7 +1429,7 @@ fc_scatterplot <- function(
   x_lab = "fc_ip",
   y_lab = "fc_input",
   point_alpha = 0.3
-){
+) {
   ggplot_dat +
     ggplot2::geom_point(
       alpha = point_alpha
