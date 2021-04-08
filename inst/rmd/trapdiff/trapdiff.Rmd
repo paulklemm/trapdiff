@@ -124,7 +124,7 @@ plot_volcano <- function(dat, min_padj, min_log2fc, plot_top_n = 10, title = "")
 }
 ```
 
-**trapdiff** allows interaction term analysis of complex experimental setups, such as riboTRAP or bacTRAP.
+**trapdiff** performs interaction term analysis of complex experimental setups, such as riboTRAP or bacTRAP data.
 
 This document contains settings and logs for running this analysis and contains the result as spreadsheet.
 
@@ -423,7 +423,7 @@ tibble::tibble(
 
 ```{r run-deseq2}
 
-# Test Size factor estimation individually by treatment (IP or Input)
+# Test size factor estimation individually by treatment (IP or Input)
 col_data_treatment_a <- dplyr::filter(col_data, treatment %in% treatment_a[[1]])
 col_data_treatment_b <- dplyr::filter(col_data, treatment %in% treatment_b[[1]])
 col_data_source_a <- dplyr::filter(col_data, source %in% source_a[[1]])
@@ -912,6 +912,8 @@ if (rmd_params$save_excel) {
 
 ### Differentially Expressed (DE) Genes
 
+#### Debug plots
+
 <details>
 <summary>
 Debug: Correlate CPM log2FoldChange with DESeq2 log2FoldChange
@@ -1045,7 +1047,7 @@ cpm_comparison_plot(sourcea_sourceb_treatmentb, glue::glue(glue::glue("{source_a
   ggplot2::ylim(-1, 1)
 ```
 
-We can also look at DESeq2 sizefactors vs library size.
+When we look at library size vs size factor, we want to see a correlation. If these values do not correlate, we might need to split and calculate the size factors separately by IP/Input or our experimental groups.
 
 ```{r lib-size-plot}
 
@@ -1269,13 +1271,11 @@ Click on `Code` above to display the DE genes and normalized CPM values for this
 
 </details>
 
-<br>
-<br>
+#### DE genes table
 
 Let's check the DE genes for each effect (`r nrow(counts)` genes left in the analysis after initial filtering, see "Analysis run" section).
 
 ```{r de-summary-table, warning = FALSE, message = FALSE}
-
 de %>%
   dplyr::mutate(
     sig_up_regulated = padj <= rmd_params$padj_cutoff & log2FoldChange > 0,
@@ -1286,12 +1286,17 @@ de %>%
     up_regulated = sum(sig_up_regulated, na.rm = TRUE),
     down_regulated = sum(sig_down_regulated, na.rm = TRUE),
   ) %>%
-  knitr::kable()
-
+  gt::gt() %>%
+  gt::tab_header(
+    title = "Differentially expressed genes per comparison"
+  )
 ```
 
-```{r datatable, warning = FALSE}
+#### DE genes table
 
+Download the table in a format of your choosing.
+
+```{r datatable, warning = FALSE}
 de_wide %>%
   dplyr::mutate(
     gene_id = paste0(ensembl_gene_id, "_", external_gene_name)
@@ -1325,11 +1330,10 @@ de$comparison %>%
 
 ### DE Interaction Gene Plots
 
+This list only contains genes that are differentially expressed according to the interaction term.
+
 Because of a technically limitation, please first select a gene of interest here and then open the plot.
 Otherwise this will drastically slow down your browser.
-
-This is only suitable for briefly checking the results.
-For a proper analysis tool, check the results using the shiny application.
 
 ```{r prepare-gene-plot}
 gene_plot <- function(dat) {
@@ -1348,8 +1352,11 @@ plot_dat <- dplyr::left_join(
   x = col_data %>%
     dplyr::mutate(group = glue::glue("{source}_{treatment}")) %>%
     dplyr::select(id, group),
-  y = tpms %>%
-    tidyr::pivot_longer(cols = -ensembl_gene_id, names_to = "sample") %>%
+  y = cpms %>%
+    dplyr::rename(value = cpm) %>%
+    dplyr::select(ensembl_gene_id, sample, value) %>%
+    # tpms %>%
+    # tidyr::pivot_longer(cols = -ensembl_gene_id, names_to = "sample") %>%
     # Attach variable name
     rmyknife::attach_biomart(
       attributes = "external_gene_name",
