@@ -13,7 +13,7 @@ params:
   counts: ""
   tpms_min: 0
   padj_cutoff: 0.05
-  ensembl_version: 100
+  ensembl_version: 102
   biotypes_filter: !r NA
   save_figures: TRUE
   deseq_split_size_factors: FALSE

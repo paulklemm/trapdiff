@@ -62,7 +62,7 @@ trapdiff <- function(
   counts,
   path_config_json,
   out_path,
-  ensembl_version = 100,
+  ensembl_version = 102,
   biotypes_filter = "protein_coding",
   tpms_min = 1,
   padj_cutoff = 0.05,

@@ -8,7 +8,7 @@ trapdiff(
   counts,
   path_config_json,
   out_path,
-  ensembl_version = 100,
+  ensembl_version = 102,
   biotypes_filter = "protein_coding",
   tpms_min = 1,
   padj_cutoff = 0.05,
@@ -16,7 +16,8 @@ trapdiff(
   save_excel = TRUE,
   save_figures = TRUE,
   deseq_split_size_factors = FALSE,
-  splits = "treatment"
+  splits = "treatment",
+  filter_regex = "^mt-"
 )
 }
 \arguments{
@@ -43,6 +44,8 @@ trapdiff(
 \item{deseq_split_size_factors}{Create sizeFactor estimates separately for each split condition}
 
 \item{splits}{If deseq_split_size_factors is set to true, sizeFactors are calculated for these groups separately}
+
+\item{filter_regex}{Manually regex out genes. Defaults to all mitochondrial genes starting with "mt-"}
 }
 \description{
 Run trapdiff and save report file
