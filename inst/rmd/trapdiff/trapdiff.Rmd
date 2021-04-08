@@ -364,7 +364,7 @@ counts <-
 
 We keep `r genes_satisfying_min_tpms %>% length()` genes where the mean of gene tpms in one of the groups (`r col_data %>% dplyr::mutate(experimental_group = glue::glue("{source}_{treatment}")) %>% dplyr::select(experimental_group) %>% dplyr::distinct() %>% dplyr::pull()`) a tpm of `r rmd_params$tpms_min` or more.
 
-Additionally, we filter `r genes_regex_filtered %>% length()` genes manually with regex `r rmd_params$filter_regex`.
+Additionally, we remove `r genes_regex_filtered %>% length()` genes manually with regex `r rmd_params$filter_regex`.
 
 The head of the counts table looks as follows.
 
@@ -1043,6 +1043,54 @@ cpm_comparison_plot(sourcea_sourceb_treatmentb, glue::glue(glue::glue("{source_a
 cpm_comparison_plot(sourcea_sourceb_treatmentb, glue::glue(glue::glue("{source_a}_{source_b}_{treatment_b} (Zoom)"))) +
   ggplot2::xlim(-1, 1) +
   ggplot2::ylim(-1, 1)
+```
+
+We can also look at DESeq2 sizefactors vs library size.
+
+```{r lib-size-plot}
+
+plot_size_factor <- function(dat, color_var) {
+  ggplot2::ggplot(
+    data = dat,
+    mapping = ggplot2::aes_string(
+      x = "size_factor",
+      y = "library_size",
+      color = color_var
+    )
+  ) +
+    ggplot2::geom_point() +
+    ggplot2::ggtitle(
+      glue::glue("DESeq2 size factor against library size colored by {color_var}"),
+      "There should be no shifts in this dataset, library size and size factor should correlate"
+    )
+}
+
+deseq_result %>%
+  # Make dataframe with size factors, library size and col_data
+  (function(dat) {
+    # dat <- deseq_result
+    sizefactors <-
+      dat %>%
+      DESeq2::sizeFactors() %>%
+      tibble::enframe(name = "id", value = "size_factor")
+    library_sizes <-
+      dat %>%
+      DESeq2::counts() %>%
+      tibble::as_tibble() %>%
+      tidyr::pivot_longer(cols = dplyr::everything(), names_to = "id", values_to = "count") %>%
+      dplyr::group_by(id) %>%
+      dplyr::summarise(library_size = sum(count))
+    # Join the two into one frame by id
+    dplyr::left_join(sizefactors, library_sizes, by = "id") %>%
+      # Join source and treatment
+      dplyr::left_join(col_data, by = "id")
+  }) %>%
+  # Plot both colored by treatment and source
+  (function(dat) {
+    plot_size_factor(dat, "source") %>% print()
+    plot_size_factor(dat, "treatment") %>% print()
+    return()
+  })
 ```
 
 </details>
