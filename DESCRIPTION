@@ -30,4 +30,5 @@ Imports:
     ggrepel,
     infer,
     furrr,
-    broom
+    broom,
+    gt
