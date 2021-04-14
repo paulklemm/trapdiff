@@ -860,6 +860,20 @@ de_wide <- de %>%
     names_from = comparison,
     values_from = c(padj, log2FoldChange)
   )
+
+# Calculate CPMs here before they are saved
+cpms <-
+  counts %>%
+  tidyr::pivot_longer(-ensembl_gene_id, names_to = "sample", values_to = "count") %>%
+  dplyr::left_join(col_data, by = c("sample" = "id")) %>%
+  # Add total number of reads per sample
+  dplyr::group_by(sample) %>%
+  dplyr::mutate(total_sample_count = sum(count)) %>%
+  dplyr::ungroup() %>%
+  # Calculate CPM
+  dplyr::mutate(cpm = (count / total_sample_count) * 1000000) %>%
+  dplyr::select(-total_sample_count)
+
 ```
 
 ```{r save_result, message = FALSE}
@@ -941,17 +955,6 @@ To check if that works correctly, we relate the fold-changes calculated by DESeq
 We want to see plots that correlate and where the center crosses coordinate 0, 0.
 Values far off from that indicate a problem.
 ```{r plot-cpmfc-deseq-fc, , warning = FALSE, message = FALSE}
-cpms <-
-  counts %>%
-  tidyr::pivot_longer(-ensembl_gene_id, names_to = "sample", values_to = "count") %>%
-  dplyr::left_join(col_data, by = c("sample" = "id")) %>%
-  # Add total number of reads per sample
-  dplyr::group_by(sample) %>%
-  dplyr::mutate(total_sample_count = sum(count)) %>%
-  dplyr::ungroup() %>%
-  # Calculate CPM
-  dplyr::mutate(cpm = (count / total_sample_count) * 1000000) %>%
-  dplyr::select(-total_sample_count)
 
 # {treatment_a}_{treatment_b}_{source_a}
 # Comparison
