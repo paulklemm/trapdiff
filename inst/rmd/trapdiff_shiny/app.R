@@ -411,7 +411,7 @@ server <- function(input, output, session) {
       ggplot2::ggplot(
         mapping = ggplot2::aes(
           x = group,
-          y = value
+          y = cpm
         )
       ) +
       #ggplot2::geom_violin() +
