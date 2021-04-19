@@ -2,11 +2,11 @@ library(shiny)
 library(shinydashboard)
 library(plotly)
 # Temprarily point biomart to a mirror
-options(
-  rmyknife.verbose = TRUE,
-  rmyknife.use_biomart_mirror = TRUE,
-  rmyknife.biomart_mirror_host = "useast.ensembl.org"
-)
+# options(
+#   rmyknife.verbose = TRUE,
+#   rmyknife.use_biomart_mirror = TRUE,
+#   rmyknife.biomart_mirror_host = "useast.ensembl.org"
+# )
 library(rmyknife)
 # Define ggplot2 options
 ggplot2::theme_set(
