@@ -416,7 +416,7 @@ server <- function(input, output, session) {
       ) +
       #ggplot2::geom_violin() +
       ggplot2::geom_boxplot() +
-      ggplot2::geom_jitter(width = 0.1) +
+      ggplot2::geom_jitter(width = 0.1, height = 0) +
       ggplot2::ggtitle(glue::glue("CPMs {input$gene_id}"))
   })
 
