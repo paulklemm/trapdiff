@@ -348,8 +348,8 @@ genes_regex_filtered <-
     attributes = "external_gene_name",
     ensembl_version = rmd_params$ensembl_version
   ) %>%
-  # dplyr::filter(stringr::str_detect(external_gene_name, rmd_params$filter_regex))
-  dplyr::filter(stringr::str_detect(external_gene_name, "^mt-")) %>%
+  dplyr::filter(stringr::str_detect(external_gene_name, rmd_params$filter_regex))
+  # dplyr::filter(stringr::str_detect(external_gene_name, "^mt-")) %>%
   dplyr::select(ensembl_gene_id) %>%
   dplyr::pull()
 
