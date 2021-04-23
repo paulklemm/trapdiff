@@ -64,6 +64,7 @@ ui <- dashboardPage(
         ),
        # minified = TRUE,
        # collapsed = FALSE,
+       shinybusy::add_busy_spinner(spin = "dots", position = "bottom-right"),
        helpText("Path to Trapdiff data. Typically you do not need to change this."),
        textInput(
           inputId = "trappath",
@@ -158,20 +159,35 @@ server <- function(input, output, session) {
 
   # Read data
   de <- shiny::reactive({
+    shiny::validate(
+      need(input$trappath != "", "Please provide valid data set")
+    )
     glue::glue("{input$trappath}/de.rds") %>%
       readRDS() %>%
       dplyr::mutate(gene_id = glue::glue("{ensembl_gene_id}_{external_gene_name}"))
   })
   col_data <- shiny::reactive({
+    shiny::validate(
+      need(input$trappath != "", "Please provide valid data set")
+    )
     readRDS(glue::glue("{input$trappath}/col_data.rds"))
   })
   tpms <- shiny::reactive({
+    shiny::validate(
+      need(input$trappath != "", "Please provide valid data set")
+    )
     readRDS(glue::glue("{input$trappath}/tpms.rds"))
   })
   cpms <- shiny::reactive({
+    shiny::validate(
+      need(input$trappath != "", "Please provide valid data set")
+    )
     readRDS(glue::glue("{input$trappath}/cpms.rds"))
   })
   de_wide <- shiny::reactive({
+    shiny::validate(
+      need(input$trappath != "", "Please provide valid data set")
+    )
     de() %>%
       tidyr::pivot_wider(
         names_from = comparison,
@@ -180,6 +196,9 @@ server <- function(input, output, session) {
       rmyknife::attach_biomart(attributes = "description")
   })
     treatment_a <- shiny::reactive({
+    shiny::validate(
+      need(input$trappath != "", "Please provide valid data set")
+    )
     dat <- tryCatch(
       col_data()$treatment %>%
         levels() %>%
@@ -189,6 +208,9 @@ server <- function(input, output, session) {
     return(dat)
   })
   treatment_b <- shiny::reactive({
+    shiny::validate(
+      need(input$trappath != "", "Please provide valid data set")
+    )
     dat <- tryCatch(
       col_data()$treatment %>%
         levels() %>%
@@ -198,6 +220,9 @@ server <- function(input, output, session) {
     return(dat)
   })
   source_a <- shiny::reactive({
+    shiny::validate(
+      need(input$trappath != "", "Please provide valid data set")
+    )
     dat <- tryCatch(
       col_data()$source %>%
         levels() %>%
@@ -207,6 +232,9 @@ server <- function(input, output, session) {
     return(dat)
   })
   source_b <- shiny::reactive({
+    shiny::validate(
+      need(input$trappath != "", "Please provide valid data set")
+    )
     dat <- tryCatch(
       col_data()$source %>%
         levels() %>%
@@ -404,7 +432,10 @@ server <- function(input, output, session) {
           ) %>%
           dplyr::select(ensembl_gene_id, padj_interaction_effect),
         by = "ensembl_gene_id"
-      )
+      ) %>%
+      # Attach sample ID
+      dplyr::mutate(sample_id = stringr::str_extract(id, "\\d*$")) %>%
+      dplyr::mutate(sample_id = glue::glue("{source}_{sample_id}"))
 
     plot_dat %>%
       dplyr::filter(gene_id %in% input$gene_id) %>%
@@ -416,9 +447,16 @@ server <- function(input, output, session) {
       ) +
       #ggplot2::geom_violin() +
       # Remove outliers from boxplot to not confuse them with the jitter data points
-      ggplot2::geom_boxplot(outlier.shape = NA) +
-      ggplot2::geom_jitter(width = 0.1, height = 0) +
-      ggplot2::ggtitle(glue::glue("CPMs {input$gene_id}"))
+      ggplot2::geom_boxplot(outlier.shape = NA, color = "grey") +
+      ggplot2::geom_jitter(
+        mapping = ggplot2::aes(color = sample_id),
+        width = 0.1,
+        height = 0
+      ) +
+      ggplot2::ggtitle(
+        "CPMs per condition",
+        input$gene_id
+      )
   })
 
   output$stats_plot <- shiny::renderPlot({
