@@ -14,7 +14,7 @@ params:
   tpms_min: 0
   padj_cutoff: 0.05
   ensembl_version: 102
-  biotypes_filter: !r NA
+  biotypes_filter: ""
   save_figures: TRUE
   deseq_split_size_factors: FALSE
   save_excel: FALSE
@@ -267,7 +267,7 @@ counts <- counts %>%
 # Default report message.
 remove_biotypes_report <- "We keep genes of all biotypes."
 # Filter for biotypes of interest
-if (!is.na(rmd_params$biotypes_filter)) {
+if (!(rmd_params$biotypes_filter == "")) {
   counts <- counts %>%
     rmyknife::attach_biomart(
       attributes = "gene_biotype",
@@ -302,7 +302,7 @@ tpms <-
   dplyr::mutate(reads_per_kilobase = count / gene_length_kb) %>%
   # Count up all the RPK values in a sample and divide this number by 1,000,000. This is your “per million” scaling factor.
   dplyr::group_by(sample) %>%
-  dplyr::mutate(rpk_scaling_factor = sum(reads_per_kilobase) / 1000000) %>%
+  dplyr::mutate(rpk_scaling_factor = sum(reads_per_kilobase, na.rm = TRUE) / 1000000) %>%
   dplyr::ungroup() %>%
   # Divide the RPK values by the “per million” scaling factor. This gives you TPM.
   dplyr::mutate(tpm = reads_per_kilobase / rpk_scaling_factor) %>%
