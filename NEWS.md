@@ -1,3 +1,8 @@
+# trapdiff 0.3.2
+
+* Use DESeq2 normalized counts for ratio comparison
+* Export ratio t-test and normalized counts
+
 # trapdiff 0.3.1
 
 * Added a `NEWS.md` file to track changes to the package.
