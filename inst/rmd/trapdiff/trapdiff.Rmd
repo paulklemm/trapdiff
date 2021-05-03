@@ -1197,6 +1197,10 @@ t_test_result <-
       tidyr::pivot_wider(names_from = `get(comparison_variable)`, values_from = mean_count_norm) %>%
       dplyr::mutate(fc = log2(get(comp_a_variable) / get(comp_b_variable))) %>%
       .$fc
+    # Avoid running tests where all values are 0
+    if (sum(counts_normalized_of_gene$count_norm) == 0) {
+      return()
+    }
     # Perform t-test
     counts_normalized_of_gene %>%
       # Add constant 1 to avoid division by 0
