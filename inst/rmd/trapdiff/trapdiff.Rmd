@@ -1162,7 +1162,8 @@ counts_normalized <-
   tidyr::pivot_wider(names_from = normalization_variable, values_from = count) %>%
   dplyr::mutate(count_norm = get(ip_variable) / get(in_variable)) %>%
   dplyr::select(ensembl_gene_id, comparison_variable, sample_id, count_norm) %>%
-  dplyr::filter(!is.na(count_norm) & !is.infinite(count_norm))
+  dplyr::filter(!is.na(count_norm) & !is.infinite(count_norm)) %>%
+  dplyr::mutate(count_norm = log2(count_norm))
 
 # counts_normalized_added <-
 #   deseq_result %>%
