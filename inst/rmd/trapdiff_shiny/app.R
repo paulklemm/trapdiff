@@ -98,20 +98,25 @@ ui <- dashboardPage(
      body = dashboardBody(
        fluidRow(
         box(
-          width = 4,
+          width = 3,
           collapsible = TRUE,
-          plotOutput("plot_each_group")
+          plotOutput("plot_group_counts")
         ),
         box(
-          width = 4,
+          width = 3,
           collapsible = TRUE,
           plotOutput("stats_plot")
         ),
         box(
-          width = 4,
+          width = 3,
+          collapsible = TRUE,
+          plotOutput("ratio_plot")
+        ),
+        box(
+          width = 3,
           collapsible = TRUE,
           plotly::plotlyOutput("main_scatterplot")
-        ),
+        )
       ),
       fluidRow(
         box(
@@ -162,8 +167,16 @@ server <- function(input, output, session) {
     shiny::validate(
       need(input$trappath != "", "Please provide valid data set")
     )
+    ratio_t_test <- readr::read_csv(glue::glue("{input$trappath}/ratio_t_test.csv.gz"))
+    # Attach ratio t_test to the data frame to be able to compare its results
     glue::glue("{input$trappath}/de.rds") %>%
       readRDS() %>%
+      dplyr::bind_rows(
+        ratio_t_test %>%
+        dplyr::select(ensembl_gene_id, external_gene_name, log2FoldChange, p_value) %>%
+        dplyr::mutate(comparison = "ratio") %>%
+        dplyr::rename(padj = p_value)
+      ) %>%
       dplyr::mutate(gene_id = glue::glue("{ensembl_gene_id}_{external_gene_name}"))
   })
   col_data <- shiny::reactive({
@@ -184,6 +197,22 @@ server <- function(input, output, session) {
     )
     readRDS(glue::glue("{input$trappath}/cpms.rds"))
   })
+  counts <- shiny::reactive({
+    shiny::validate(
+      need(input$trappath != "", "Please provide valid data set")
+    )
+    readr::read_csv(glue::glue("{input$trappath}/deseq_normalized_counts.csv.gz"))
+  })
+  ratio_counts <- shiny::reactive({
+    shiny::validate(
+      need(input$trappath != "", "Please provide valid data set")
+    )
+    glue::glue("{input$trappath}/ratio_counts.csv.gz") %>%
+      readr::read_csv() %>%
+      dplyr::mutate(gene_id = glue::glue("{ensembl_gene_id}_{external_gene_name}"))
+
+  })
+
   de_wide <- shiny::reactive({
     shiny::validate(
       need(input$trappath != "", "Please provide valid data set")
@@ -408,6 +437,33 @@ server <- function(input, output, session) {
     plotly::ggplotly(plot)
   })
 
+  output$plot_group_counts <- shiny::renderPlot({
+    counts() %>%
+      dplyr::mutate(
+        gene_id = paste0(ensembl_gene_id, "_", external_gene_name),
+        sample_id = glue::glue("{source}_{sample_id}"),
+        group = glue::glue("{source}_{treatment}")
+      ) %>%
+      dplyr::filter(gene_id %in% input$gene_id) %>%
+      ggplot2::ggplot(
+        mapping = ggplot2::aes(
+          x = group,
+          y = count
+        )
+      ) +
+      # Remove outliers from boxplot to not confuse them with the jitter data points
+      ggplot2::geom_boxplot(outlier.shape = NA, color = "grey") +
+      ggplot2::geom_jitter(
+        mapping = ggplot2::aes(color = sample_id),
+        width = 0.1,
+        height = 0
+      ) +
+      ggplot2::ggtitle(
+        "DESeq2 Counts per condition",
+        input$gene_id
+      )
+  })
+
   output$plot_each_group <- shiny::renderPlot({
     # Create a tidy long format of tpms
     plot_dat <- dplyr::left_join(
@@ -417,7 +473,7 @@ server <- function(input, output, session) {
       y = cpms(),
       by = c("id" = "sample")
     ) %>%
-      # Filtr all genes where we do not get a gene name
+      # Filter all genes where we do not get a gene name
       dplyr::filter(!is.na(external_gene_name)) %>%
       # Create a unique gene_id variable for filtering
       dplyr::mutate(
@@ -445,7 +501,6 @@ server <- function(input, output, session) {
           y = cpm
         )
       ) +
-      #ggplot2::geom_violin() +
       # Remove outliers from boxplot to not confuse them with the jitter data points
       ggplot2::geom_boxplot(outlier.shape = NA, color = "grey") +
       ggplot2::geom_jitter(
@@ -455,6 +510,31 @@ server <- function(input, output, session) {
       ) +
       ggplot2::ggtitle(
         "CPMs per condition",
+        input$gene_id
+      )
+  })
+
+  output$ratio_plot <- shiny::renderPlot({
+    ratio_counts() %>%
+      dplyr::mutate(
+        gene_id = paste0(ensembl_gene_id, "_", external_gene_name),
+        sample = glue::glue("{source}_{sample_id}")
+      ) %>%
+      dplyr::filter(gene_id %in% input$gene_id) %>%
+      ggplot2::ggplot(
+        mapping = ggplot2::aes(
+          x = source,
+          y = count_norm
+        )
+      ) +
+      # Remove outliers from boxplot to not confuse them with the jitter data points
+      ggplot2::geom_boxplot(outlier.shape = NA, color = "grey") +
+      ggplot2::geom_jitter(
+        width = 0.1,
+        height = 0
+      ) +
+      ggplot2::ggtitle(
+        "IP/Input ratios per condition",
         input$gene_id
       )
   })
