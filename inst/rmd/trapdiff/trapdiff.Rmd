@@ -1163,34 +1163,7 @@ counts_normalized <-
   dplyr::mutate(count_norm = get(ip_variable) / get(in_variable)) %>%
   dplyr::select(ensembl_gene_id, comparison_variable, sample_id, count_norm) %>%
   dplyr::filter(!is.na(count_norm) & !is.infinite(count_norm)) %>%
-  dplyr::mutate(count_norm = log2(count_norm))
-
-# counts_normalized_added <-
-#   deseq_result %>%
-#   DESeq2::counts(normalized = TRUE) %>%
-#   rmyknife::deseq2_result_to_tibble() %>%
-#   tidyr::pivot_longer(-ensembl_gene_id, names_to = "sample", values_to = "count") %>%
-#   dplyr::mutate(sample_id = stringr::str_extract(sample, pattern = "(\\d)+$")) %>%
-#   # Add constant 1 to avoid division by 0
-#   dplyr::mutate(count = count + 1) %>%
-#   # Attach col_data
-#   dplyr::left_join(col_data, by = c("sample" = "id")) %>%
-#   dplyr::select(-sample) %>%
-#   tidyr::pivot_wider(names_from = normalization_variable, values_from = count) %>%
-#   dplyr::mutate(count_norm = get(ip_variable) / get(in_variable)) %>%
-#   dplyr::select(ensembl_gene_id, comparison_variable, sample_id, count_norm) %>%
-#   dplyr::filter(!is.na(count_norm) & !is.infinite(count_norm))
-
-# cpms_normalized <-
-#   cpms %>%
-#   # dplyr::filter(cpm > 0) %>%
-#   dplyr::mutate(sample_id = stringr::str_extract(sample, pattern = "(\\d)+$")) %>%
-#   dplyr::select(-count, -sample) %>%
-#   #dplyr::group_by(ensembl_gene_id, sample_id, source) %>%
-#   tidyr::pivot_wider(names_from = normalization_variable, values_from = cpm) %>%
-#   dplyr::mutate(cpm_norm = get(ip_variable) / get(in_variable)) %>%
-#   dplyr::select(ensembl_gene_id, comparison_variable, sample_id, cpm_norm) %>%
-#   dplyr::filter(!is.na(cpm_norm) & !is.infinite(cpm_norm))
+  dplyr::mutate(log2_count_norm = log2(count_norm))
 
 t_test_result <-
   # Iterate over all genes
@@ -1217,7 +1190,7 @@ t_test_result <-
       dplyr::mutate(fc = log2(get(comp_a_variable) / get(comp_b_variable))) %>%
       .$fc
     # Avoid running tests where all values are 0
-    if (var(counts_normalized_of_gene$count_norm) == 0) {
+    if (var(counts_normalized_of_gene$log2_count_norm) == 0) {
       return()
     }
     # Perform t-test
@@ -1225,7 +1198,7 @@ t_test_result <-
     # counts_normalized_added %>%
     #   dplyr::filter(ensembl_gene_id == gene_id) %>%
       infer::t_test(
-        response = count_norm,
+        response = log2_count_norm,
         explanatory = source,
         order = c(settings$source_comparison[[1]], settings$source_comparison[[2]])
       ) %>%
