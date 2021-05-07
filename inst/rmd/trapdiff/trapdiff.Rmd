@@ -785,6 +785,93 @@ deseq_results_treatment %>%
 
 ```
 
+```{r normalised-cpm-analysis, warning = FALSE, message = FALSE}
+
+if (settings$normalization == "treatment") {
+  normalization_variable <- "treatment"
+  comparison_variable <- "source"
+} else {
+  normalization_variable <- "source"
+  comparison_variable <- "treatment"
+}
+# Get group names
+ip_variable <- settings[glue::glue("{normalization_variable}_comparison")][[1]][1][[1]]
+in_variable <- settings[glue::glue("{normalization_variable}_comparison")][[1]][2][[1]]
+comp_a_variable <- settings[glue::glue("{comparison_variable}_comparison")][[1]][1][[1]]
+comp_b_variable <- settings[glue::glue("{comparison_variable}_comparison")][[1]][2][[1]]
+
+# Get DESeq2 normalized CPMs
+counts_normalized <-
+  deseq_result %>%
+  DESeq2::counts(normalized = TRUE) %>%
+  rmyknife::deseq2_result_to_tibble() %>%
+  tidyr::pivot_longer(-ensembl_gene_id, names_to = "sample", values_to = "count") %>%
+  dplyr::mutate(sample_id = stringr::str_extract(sample, pattern = "(\\d)+$")) %>%
+  # Add constant 1 to avoid division by 0
+  dplyr::mutate(count = count + 1) %>%
+  # Attach col_data
+  dplyr::left_join(col_data, by = c("sample" = "id")) %>%
+  dplyr::select(-sample) %>%
+  tidyr::pivot_wider(names_from = normalization_variable, values_from = count) %>%
+  dplyr::mutate(count_norm = get(ip_variable) / get(in_variable)) %>%
+  dplyr::select(ensembl_gene_id, comparison_variable, sample_id, count_norm) %>%
+  dplyr::filter(!is.na(count_norm) & !is.infinite(count_norm)) %>%
+  dplyr::mutate(log2_count_norm = log2(count_norm))
+
+ratio_t_test <-
+  # Iterate over all genes
+  counts_normalized$ensembl_gene_id %>%
+  unique() %>%
+  # purrr::map(function(gene_id) {
+  furrr::future_map(function(gene_id) {
+    # Check if we get enough samples
+    counts_normalized_of_gene <-
+      counts_normalized %>%
+      dplyr::filter(ensembl_gene_id == gene_id) %>%
+      dplyr::filter(!is.infinite(count_norm))
+    min_valid_samples <-
+      counts_normalized_of_gene %>%
+      dplyr::count(get(comparison_variable))
+    # If we do not have enough valid samples, return
+    if (nrow(min_valid_samples) < 2 | min(min_valid_samples$n) < 2) { return() }
+    # Get Fold-change
+    l2fc <-
+      counts_normalized_of_gene %>%
+      dplyr::group_by(get(comparison_variable)) %>%
+      dplyr::summarise(mean_count_norm = mean(count_norm), .groups = "drop_last") %>%
+      tidyr::pivot_wider(names_from = `get(comparison_variable)`, values_from = mean_count_norm) %>%
+      dplyr::mutate(fc = log2(get(comp_a_variable) / get(comp_b_variable))) %>%
+      .$fc
+    # Avoid running tests where all values are 0
+    if (var(counts_normalized_of_gene$log2_count_norm) == 0) {
+      return()
+    }
+    # Perform t-test
+    counts_normalized_of_gene %>%
+    # counts_normalized_added %>%
+    #   dplyr::filter(ensembl_gene_id == gene_id) %>%
+      infer::t_test(
+        response = log2_count_norm,
+        explanatory = source,
+        order = c(settings$source_comparison[[1]], settings$source_comparison[[2]])
+      ) %>%
+      # Attach gene id to be able to tell later on
+      dplyr::mutate(
+        ensembl_gene_id = gene_id,
+        log2FoldChange = l2fc
+      ) %>%
+      return()
+  }) %>%
+  dplyr::bind_rows() %>%
+  # Attach external gene name
+  rmyknife::attach_biomart(
+    attributes = "external_gene_name",
+    ensembl_version = rmd_params$ensembl_version,
+    verbose = FALSE
+  )
+
+```
+
 ```{r get-contrasts, message = FALSE}
 # This works at the moment only for two treatment and source groups
 main_effect_a <-
@@ -848,6 +935,13 @@ de <- dplyr::bind_rows(
     select_join() %>%
     dplyr::mutate(comparison = source_effect_b_comparison_name)
 ) %>%
+  # Attach t-test
+  dplyr::bind_rows(
+    ratio_t_test %>%
+    dplyr::select(ensembl_gene_id, log2FoldChange, p_value) %>%
+    dplyr::mutate(comparison = "ratio") %>%
+    dplyr::rename(padj = p_value)
+  ) %>%
   # Attach variable name
   rmyknife::attach_biomart(
     attributes = c("external_gene_name"),
@@ -856,9 +950,13 @@ de <- dplyr::bind_rows(
   )
 
 de_wide <- de %>%
+  dplyr::filter(!is.na(padj)) %>%
   tidyr::pivot_wider(
     names_from = comparison,
     values_from = c(padj, log2FoldChange)
+  ) %>%
+  dplyr::rename(
+    p_ratio = padj_ratio
   )
 
 # Calculate CPMs here before they are saved
@@ -940,6 +1038,28 @@ if (rmd_params$save_rds) {
       dplyr::select(ensembl_gene_id, external_gene_name, cpm, dplyr::everything()),
     file = glue::glue("{rmd_params$path_out}/cpms.rds")
   )
+  # Save t-test
+  ratio_t_test %>%
+    dplyr::select(ensembl_gene_id, external_gene_name, dplyr::everything()) %>%
+    readr::write_csv(file = glue::glue("{rmd_params$path_out}/ratio_t_test.csv.gz"))
+  # DESeq2 normalized counts
+  deseq_result %>%
+    DESeq2::counts(normalized = TRUE) %>%
+    rmyknife::deseq2_result_to_tibble() %>%
+    tidyr::pivot_longer(-ensembl_gene_id, names_to = "sample", values_to = "count") %>%
+    dplyr::mutate(sample_id = stringr::str_extract(sample, pattern = "(\\d)+$")) %>%
+    # Attach col_data
+    dplyr::left_join(col_data, by = c("sample" = "id")) %>%
+    # Attach external_gene_name
+    rmyknife::attach_biomart(attributes = "external_gene_name", ensembl_version = rmd_params$ensembl_version) %>%
+    dplyr::select(ensembl_gene_id, external_gene_name, dplyr::everything()) %>%
+    readr::write_csv(file = glue::glue("{rmd_params$path_out}/deseq_normalized_counts.csv.gz"))
+  # Ratio counts
+  counts_normalized %>%
+    # Attach external_gene_name
+    rmyknife::attach_biomart(attributes = "external_gene_name", ensembl_version = rmd_params$ensembl_version) %>%
+    dplyr::select(ensembl_gene_id, external_gene_name, dplyr::everything()) %>%
+    readr::write_csv(file = glue::glue("{rmd_params$path_out}/ratio_counts.csv.gz"))
 }
 
 if (rmd_params$save_excel) {
@@ -1132,120 +1252,8 @@ deseq_result %>%
 Comparing IP/Input library-size normalized CPM values.
 </summary>
 
-```{r normalised-cpm-analysis, warning = FALSE, message = FALSE}
-
-if (settings$normalization == "treatment") {
-  normalization_variable <- "treatment"
-  comparison_variable <- "source"
-} else {
-  normalization_variable <- "source"
-  comparison_variable <- "treatment"
-}
-# Get group names
-ip_variable <- settings[glue::glue("{normalization_variable}_comparison")][[1]][1][[1]]
-in_variable <- settings[glue::glue("{normalization_variable}_comparison")][[1]][2][[1]]
-comp_a_variable <- settings[glue::glue("{comparison_variable}_comparison")][[1]][1][[1]]
-comp_b_variable <- settings[glue::glue("{comparison_variable}_comparison")][[1]][2][[1]]
-
-# Get DESeq2 normalized CPMs
-counts_normalized <-
-  deseq_result %>%
-  DESeq2::counts(normalized = TRUE) %>%
-  rmyknife::deseq2_result_to_tibble() %>%
-  tidyr::pivot_longer(-ensembl_gene_id, names_to = "sample", values_to = "count") %>%
-  dplyr::mutate(sample_id = stringr::str_extract(sample, pattern = "(\\d)+$")) %>%
-  # Add constant 1 to avoid division by 0
-  dplyr::mutate(count = count + 1) %>%
-  # Attach col_data
-  dplyr::left_join(col_data, by = c("sample" = "id")) %>%
-  dplyr::select(-sample) %>%
-  tidyr::pivot_wider(names_from = normalization_variable, values_from = count) %>%
-  dplyr::mutate(count_norm = get(ip_variable) / get(in_variable)) %>%
-  dplyr::select(ensembl_gene_id, comparison_variable, sample_id, count_norm) %>%
-  dplyr::filter(!is.na(count_norm) & !is.infinite(count_norm)) %>%
-  dplyr::mutate(log2_count_norm = log2(count_norm))
-
-t_test_result <-
-  # Iterate over all genes
-  counts_normalized$ensembl_gene_id %>%
-  unique() %>%
-  # purrr::map(function(gene_id) {
-  furrr::future_map(function(gene_id) {
-    # Check if we get enough samples
-    counts_normalized_of_gene <-
-      counts_normalized %>%
-      dplyr::filter(ensembl_gene_id == gene_id) %>%
-      dplyr::filter(!is.infinite(count_norm))
-    min_valid_samples <-
-      counts_normalized_of_gene %>%
-      dplyr::count(get(comparison_variable))
-    # If we do not have enough valid samples, return
-    if (nrow(min_valid_samples) < 2 | min(min_valid_samples$n) < 2) { return() }
-    # Get Fold-change
-    l2fc <-
-      counts_normalized_of_gene %>%
-      dplyr::group_by(get(comparison_variable)) %>%
-      dplyr::summarise(mean_count_norm = mean(count_norm), .groups = "drop_last") %>%
-      tidyr::pivot_wider(names_from = `get(comparison_variable)`, values_from = mean_count_norm) %>%
-      dplyr::mutate(fc = log2(get(comp_a_variable) / get(comp_b_variable))) %>%
-      .$fc
-    # Avoid running tests where all values are 0
-    if (var(counts_normalized_of_gene$log2_count_norm) == 0) {
-      return()
-    }
-    # Perform t-test
-    counts_normalized_of_gene %>%
-    # counts_normalized_added %>%
-    #   dplyr::filter(ensembl_gene_id == gene_id) %>%
-      infer::t_test(
-        response = log2_count_norm,
-        explanatory = source,
-        order = c(settings$source_comparison[[1]], settings$source_comparison[[2]])
-      ) %>%
-      # Attach gene id to be able to tell later on
-      dplyr::mutate(
-        ensembl_gene_id = gene_id,
-        log2FoldChange = l2fc
-      ) %>%
-      return()
-  }) %>%
-  dplyr::bind_rows() %>%
-  # Attach external gene name
-  rmyknife::attach_biomart(
-    attributes = "external_gene_name",
-    ensembl_version = rmd_params$ensembl_version,
-    verbose = FALSE
-  )
-
-if (rmd_params$save_rds) {
-  # Save t-test
-  t_test_result %>%
-    dplyr::select(ensembl_gene_id, external_gene_name, dplyr::everything()) %>%
-    readr::write_csv(file = glue::glue("{rmd_params$path_out}/ratio_t_test.csv.gz"))
-  # DESeq2 normalized counts
-  deseq_result %>%
-    DESeq2::counts(normalized = TRUE) %>%
-    rmyknife::deseq2_result_to_tibble() %>%
-    tidyr::pivot_longer(-ensembl_gene_id, names_to = "sample", values_to = "count") %>%
-    dplyr::mutate(sample_id = stringr::str_extract(sample, pattern = "(\\d)+$")) %>%
-    # Attach col_data
-    dplyr::left_join(col_data, by = c("sample" = "id")) %>%
-    # Attach external_gene_name
-    rmyknife::attach_biomart(attributes = "external_gene_name", ensembl_version = rmd_params$ensembl_version) %>%
-    dplyr::select(ensembl_gene_id, external_gene_name, dplyr::everything()) %>%
-    readr::write_csv(file = glue::glue("{rmd_params$path_out}/deseq_normalized_counts.csv.gz"))
-  # Ratio counts
-  counts_normalized %>%
-    # Attach external_gene_name
-    rmyknife::attach_biomart(attributes = "external_gene_name", ensembl_version = rmd_params$ensembl_version) %>%
-    dplyr::select(ensembl_gene_id, external_gene_name, dplyr::everything()) %>%
-    readr::write_csv(file = glue::glue("{rmd_params$path_out}/ratio_counts.csv.gz"))
-}
-
-```
-
 ```{r print-t-test, warning = FALSE, mesage = FALSE}
-t_test_result %>%
+ratio_t_test %>%
   dplyr::rename(padj = p_value) %>%
   plot_volcano(
     min_padj = rmd_params$padj_cutoff,
@@ -1256,7 +1264,7 @@ t_test_result %>%
     ggplot2::ylab(expression(-log[10](p ~ value)))
 
 dplyr::left_join(
-  x = t_test_result,
+  x = ratio_t_test,
   # Get wide format of normalized counts
   y = counts_normalized %>%
     dplyr::mutate(sample = glue::glue("{source}_{sample_id}")) %>%
@@ -1271,7 +1279,7 @@ dplyr::left_join(
 Click on `Code` above to display the DE genes and normalized count values for this comparison.
 
 ```{r tpm-de-summary}
-t_test_result %>%
+ratio_t_test %>%
   dplyr::mutate(
     sig_up_regulated = p_value <= rmd_params$padj_cutoff & log2FoldChange > 0,
     sig_down_regulated = p_value <= rmd_params$padj_cutoff & log2FoldChange < 0
@@ -1291,7 +1299,7 @@ foldchange_comparison <-
     x = de %>%
       dplyr::filter(comparison == source_effect_a_comparison_name) %>%
       dplyr::select(ensembl_gene_id, log2FoldChange, padj, external_gene_name),
-    y = t_test_result %>%
+    y = ratio_t_test %>%
       dplyr::select(ensembl_gene_id, log2FoldChange, p_value),
     by = "ensembl_gene_id",
     suffix = c("_deseq", "_count")
@@ -1380,7 +1388,26 @@ de_wide %>%
   rmyknife::dt_datatable()
 ```
 
+#### IP/Input normalized analysis
+
+Here we calculate IP/Input ratios for each sample per gene and run a t-test between our experimental conditions.
+This is useful for riboTRAP data. For bacTRAP data, you don't want to consider this result.
+
+```{r t-test-volcano, warning = FALSE, mesage = FALSE}
+ratio_t_test %>%
+  dplyr::rename(padj = p_value) %>%
+  plot_volcano(
+    min_padj = rmd_params$padj_cutoff,
+    min_log2fc = 0,
+    plot_top_n = 10,
+    title = glue::glue("Fold-changes derived from library-size normalized counts compared using t-test ({comp_a_variable} vs {comp_b_variable})")
+  ) +
+    ggplot2::ylab(expression(-log[10](p ~ value)))
+```
+
 #### Volcano Plots for each comparison
+
+This is done on raw values, not IP/Input ratios.
 
 `x_y_z` is read as comparison of group `x` and `y` in condition `z`.
 
