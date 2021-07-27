@@ -46,8 +46,7 @@ fc_scatterplot <- function(
       colour = colour_lab
     ) +
     # ggplot2::scale_size(trans = 'reverse') +
-    ggplot2::scale_color_distiller(palette = "RdBu", type = "div", direction = -1, limits = c(min_range, max_range)) +
-    ggplot2::theme_minimal()
+    ggplot2::scale_color_distiller(palette = "RdBu", type = "div", direction = -1, limits = c(min_range, max_range))
 }
 
 ui <- dashboardPage(
@@ -220,7 +219,9 @@ server <- function(input, output, session) {
     de() %>%
       tidyr::pivot_wider(
         names_from = comparison,
-        values_from = c(padj, log2FoldChange)
+        values_from = c(padj, log2FoldChange),
+        # For some reason we'll get problems with duplicate entries if we don't do this
+        values_fn = mean
       ) %>%
       rmyknife::attach_biomart(attributes = "description")
   })
