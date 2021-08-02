@@ -525,7 +525,7 @@ server <- function(input, output, session) {
       ggplot2::ggplot(
         mapping = ggplot2::aes(
           x = source,
-          y = count_norm
+          y = log2(count_norm)
         )
       ) +
       # Remove outliers from boxplot to not confuse them with the jitter data points
