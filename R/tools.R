@@ -6,7 +6,7 @@
 #' @param counts Counts per sample as dataframe
 #' @param path_config_json Configuration file telling trapdiff group associations
 #' @param out_path Output folder for report and intermediate files
-#' @param biotypes_filter Filter genes for these biotypes
+#' @param biotypes_filter Filter genes for these biotypes. Put empty string for no filtering.
 #' @param tpms_min A gene is included when at least one sample contains tpms_min reads
 #' @param padj_cutoff Minimum padj value for a significantly differentially expressed gene
 #' @param save_rds Save rds file of results
@@ -21,8 +21,8 @@ trapdiff <- function(
   path_config_json,
   out_path,
   ensembl_version = 102,
-  biotypes_filter = "protein_coding",
-  tpms_min = 1,
+  biotypes_filter = "",
+  tpms_min = 0,
   padj_cutoff = 0.05,
   save_rds = TRUE,
   save_excel = TRUE,

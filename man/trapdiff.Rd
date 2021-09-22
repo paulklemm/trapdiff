@@ -9,8 +9,8 @@ trapdiff(
   path_config_json,
   out_path,
   ensembl_version = 102,
-  biotypes_filter = "protein_coding",
-  tpms_min = 1,
+  biotypes_filter = "",
+  tpms_min = 0,
   padj_cutoff = 0.05,
   save_rds = TRUE,
   save_excel = TRUE,
@@ -29,7 +29,7 @@ trapdiff(
 
 \item{ensembl_version}{Ensembl version used for attaching biomart variables}
 
-\item{biotypes_filter}{Filter genes for these biotypes}
+\item{biotypes_filter}{Filter genes for these biotypes. Put empty string for no filtering.}
 
 \item{tpms_min}{A gene is included when at least one sample contains tpms_min reads}
 
