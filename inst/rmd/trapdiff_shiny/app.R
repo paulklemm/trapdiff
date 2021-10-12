@@ -97,25 +97,25 @@ ui <- dashboardPage(
      body = dashboardBody(
        fluidRow(
         box(
-          width = 3,
+          width = 4,
           collapsible = TRUE,
           plotOutput("plot_group_counts")
         ),
         box(
-          width = 3,
+          width = 4,
           collapsible = TRUE,
           plotOutput("stats_plot")
         ),
         box(
-          width = 3,
+          width = 4,
           collapsible = TRUE,
           plotOutput("ratio_plot")
-        ),
-        box(
-          width = 3,
-          collapsible = TRUE,
-          plotly::plotlyOutput("main_scatterplot")
         )
+        # box(
+        #   width = 3,
+        #   collapsible = TRUE,
+        #   plotly::plotlyOutput("main_scatterplot")
+        # )
       ),
       fluidRow(
         box(
