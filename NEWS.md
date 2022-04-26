@@ -1,3 +1,7 @@
+# trapdiff 0.3.3
+
+* Remove normalization analysis by using `"normalization": "none"`
+
 # trapdiff 0.3.2
 
 * Use DESeq2 normalized counts for ratio comparison
