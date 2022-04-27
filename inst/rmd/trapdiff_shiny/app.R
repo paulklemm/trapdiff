@@ -166,16 +166,26 @@ server <- function(input, output, session) {
     shiny::validate(
       need(input$trappath != "", "Please provide valid data set")
     )
-    ratio_t_test <- readr::read_csv(glue::glue("{input$trappath}/ratio_t_test.csv.gz"))
     # Attach ratio t_test to the data frame to be able to compare its results
-    glue::glue("{input$trappath}/de.rds") %>%
-      readRDS() %>%
-      dplyr::bind_rows(
-        ratio_t_test %>%
-        dplyr::select(ensembl_gene_id, external_gene_name, log2FoldChange, p_value) %>%
-        dplyr::mutate(comparison = "ratio") %>%
-        dplyr::rename(padj = p_value)
-      ) %>%
+    de_out <-
+      glue::glue("{input$trappath}/de.rds") %>%
+      readRDS()
+    
+    path_ratio_t_test <- paste0(input$trappath, "/ratio_t_test.csv.gz")
+    # Attach t-test if it exists
+    if (file.exists(path_ratio_t_test)) {
+      ratio_t_test <- readr::read_csv(path_ratio_t_test)
+      de_out <-
+        de_out %>%
+        dplyr::bind_rows(
+          ratio_t_test %>%
+          dplyr::select(ensembl_gene_id, external_gene_name, log2FoldChange, p_value) %>%
+          dplyr::mutate(comparison = "ratio") %>%
+          dplyr::rename(padj = p_value)
+        )
+    }
+    # Return result
+    de_out %>%
       dplyr::mutate(gene_id = glue::glue("{ensembl_gene_id}_{external_gene_name}"))
   })
   col_data <- shiny::reactive({
