@@ -246,12 +246,9 @@ if (nrow(undefined_samples) > 0) {
 }
 
 # Remove undefined samples from count matrix
-counts <- rmd_params$counts
-undefined_samples$id %>%
-  purrr::walk(function(na_sample) {
-    counts <<- counts %>%
-      dplyr::select(-dplyr::contains(na_sample))
-  })
+counts <-
+  rmd_params$counts %>%
+  dplyr::select(-undefined_samples$id)
 
 # Remove undefined samples from col_data
 col_data <- col_data %>%
