@@ -66,7 +66,8 @@ trapdiff <- function(
     ),
     # Change the intermediate path to the output to avoid write access errors
     intermediates_dir = out_path,
-    knit_root_dir = out_path,
+    # 2022-10-26 This yields a weird error when rendering, so we remove it
+    # knit_root_dir = out_path,
     # Clean intermediate files created during rendering.
     clean = TRUE,
     output_dir = out_path,

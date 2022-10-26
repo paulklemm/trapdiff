@@ -1,5 +1,9 @@
 # trapdiff 0.3.3
 
+* Fix rendering error by removing `knit_root_dir` from rmarkdown::render
+
+# trapdiff 0.3.3
+
 * Remove normalization analysis by using `"normalization": "none"`
 
 # trapdiff 0.3.2
