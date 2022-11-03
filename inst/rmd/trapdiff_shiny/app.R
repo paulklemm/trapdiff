@@ -73,7 +73,7 @@ ui <- dashboardPage(
         helpText("Table of the settings of the trapdiff run to be sure we have the right labels assigned."),
         tableOutput("settings"),
         helpText("Select a gene to highlight in the plots here. Alternatively you can select one in the table."),
-        selectInput(
+        selectizeInput(
           "gene_id",
           "Highlight gene",
           choices = c()
@@ -350,11 +350,12 @@ server <- function(input, output, session) {
         dplyr::slice(input$table_rows_selected) %>%
         .$gene_id
     }
-    updateSelectInput(
+    updateSelectizeInput(
       session,
       "gene_id",
       choices = gene_choices,
-      selected = selected_gene
+      selected = selected_gene,
+      server = TRUE
     )
   })
 
