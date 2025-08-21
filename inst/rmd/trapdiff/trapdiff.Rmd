@@ -1542,7 +1542,7 @@ plot_dat_sd %>%
 
 </details>
 
-```{r interactive-scatterplot, eval=FALSE}
+```{r interactive-scatterplot-define}
 fc_scatterplot <- function(
   ggplot_dat,
   colour_lab,
@@ -1572,6 +1572,10 @@ interaction_term_count <-
   de_wide %>%
   dplyr::filter(padj_interaction_effect <= rmd_params$padj_cutoff) %>%
   nrow()
+
+```
+
+```{r interactive-scatterplot, eval=FALSE}
 
 if (interaction_term_count > 0) {
   plot <- de_wide %>%
