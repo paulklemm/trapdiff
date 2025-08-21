@@ -1,6 +1,6 @@
 Package: trapdiff
 Title: Differential Gene Expression for bacTRAP/riboTRAP data based on DESeq2
-Version: 0.3.4
+Version: 0.3.5
 Authors@R: 
     person(given = "Paul",
            family = "Klemm",
@@ -13,7 +13,7 @@ Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
 biocViews:
-RoxygenNote: 7.1.1
+RoxygenNote: 7.3.2
 Remotes:
     paulklemm/rmyknife
 Imports: 

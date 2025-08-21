@@ -1542,7 +1542,7 @@ plot_dat_sd %>%
 
 </details>
 
-```{r interactive-scatterplot}
+```{r interactive-scatterplot, eval=FALSE}
 fc_scatterplot <- function(
   ggplot_dat,
   colour_lab,

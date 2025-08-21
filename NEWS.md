@@ -1,3 +1,7 @@
+# trapdiff 0.3.5
+
+* Removed interactive-scatterplot
+
 # trapdiff 0.3.3
 
 * Fix rendering error by removing `knit_root_dir` from rmarkdown::render
